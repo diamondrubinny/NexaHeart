@@ -187,3 +187,42 @@ export const STEP_FREE_NEEDS: readonly AccessNeed[] = ['wheelchair', 'step_free'
 
 /** Version of the in-app text for the `accessibility` consent; bump it when the wording changes. */
 export const ACCESSIBILITY_CONSENT_VERSION = '1';
+
+// ---------------------------------------------------------------------------------------------
+// Phase 75c: a short interview to start a profile. The questions are prompt questions, so answers
+// can be saved as prompt answers in the person's own words; a model may only propose fields.
+// ---------------------------------------------------------------------------------------------
+
+export const interviewQuestions = [
+  'perfect_sunday',
+  'geek_out_about',
+  'simple_pleasures',
+  'looking_for',
+] as const;
+export type InterviewQuestion = (typeof interviewQuestions)[number];
+
+export const interviewSuggestInputSchema = z
+  .object({
+    answers: z
+      .array(
+        z
+          .object({
+            promptKey: z.enum(interviewQuestions),
+            answer: z.string().trim().min(1).max(300),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(interviewQuestions.length),
+  })
+  .strict();
+export type InterviewSuggestInput = z.infer<typeof interviewSuggestInputSchema>;
+
+/** What a model may propose from the answers; the person ticks what to keep. */
+export const interviewSuggestionSchema = z.object({
+  interests: z.array(z.enum(interestKeys)).max(MAX_INTERESTS),
+  children: z.enum(childrenOptions).nullable(),
+  smoking: z.enum(smokingOptions).nullable(),
+  drinking: z.enum(drinkingOptions).nullable(),
+});
+export type InterviewSuggestion = z.infer<typeof interviewSuggestionSchema>;

@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
-import { bioIdeas, coachTips } from '@nexaheart/ai';
+import { bioIdeas, coachTips, suggestFromInterview } from '@nexaheart/ai';
 import { schema, type Database } from '@nexaheart/db';
-import { bioIdeasSchema, coachResponseSchema, ErrorCode, localeSchema } from '@nexaheart/shared';
+import {
+  bioIdeasSchema,
+  coachResponseSchema,
+  ErrorCode,
+  interviewSuggestInputSchema,
+  interviewSuggestionSchema,
+  localeSchema,
+} from '@nexaheart/shared';
 import { and, asc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -91,6 +98,23 @@ export const coachRoutes: FastifyPluginAsyncZod<{ auth: Auth; db: Database; ai: 
           prompts: answers,
         }),
       };
+    },
+  );
+
+  // Phase 75c: fields proposed from the person's own interview answers (only theirs are sent).
+  app.post(
+    '/v1/me/interview/suggest',
+    {
+      schema: { body: interviewSuggestInputSchema, response: { 200: interviewSuggestionSchema } },
+      config: perUserLimit(20, 24 * 60 * 60 * 1000),
+    },
+    async (request) => {
+      const userId = currentUser(request).id;
+      const model = await ai.modelFor(userId);
+      if (!model) {
+        throw new HttpError(409, ErrorCode.Conflict, 'Suggestions are not available.');
+      }
+      return suggestFromInterview(model, request.body.answers);
     },
   );
 };

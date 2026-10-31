@@ -9,3 +9,4 @@ export * from './coach.js';
 export * from './llm.js';
 export * from './matchmaker.js';
 export * from './ask-profile.js';
+export * from './interview.js';
