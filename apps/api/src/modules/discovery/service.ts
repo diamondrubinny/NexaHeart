@@ -625,6 +625,19 @@ export class DiscoveryService {
         );
     }
 
+    // Phase 76d: a pick on the target's poll, copied as text (a later edit doesn't change it).
+    let pollAnswer: string | null = null;
+    if (input.pollChoice !== undefined) {
+      const [poll] = await this.db
+        .select({ answers: schema.profilePolls.answers })
+        .from(schema.profilePolls)
+        .where(eq(schema.profilePolls.userId, input.targetId));
+      pollAnswer = poll?.answers[input.pollChoice] ?? null;
+      if (pollAnswer === null) {
+        throw new HttpError(400, ErrorCode.ValidationError, 'That answer is not on this poll.');
+      }
+    }
+
     const result = await this.db.transaction(async (tx) => {
       // Count and insert under one per-member lock, so parallel requests can't pass the limit.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`interactions:${actorId}`}))`);
@@ -657,6 +670,7 @@ export class DiscoveryService {
           comment: input.comment ?? null,
           mode,
           rose: input.rose ?? false,
+          pollAnswer,
         })
         .onConflictDoNothing()
         .returning({ id: interactions.id });
@@ -861,9 +875,10 @@ export class DiscoveryService {
       item_id: string | null;
       prompt_key: PromptKey | null;
       rose: boolean;
+      poll_answer: string | null;
       created_at: Date;
     }>(sql`
-      SELECT i.actor_id, i.comment, i.item_type, i.item_id, p.prompt_key, i.rose, i.created_at
+      SELECT i.actor_id, i.comment, i.item_type, i.item_id, p.prompt_key, i.rose, i.poll_answer, i.created_at
       FROM interactions i
       JOIN "user" u ON u.id = i.actor_id AND u.status = 'active' AND ${notOnBreak('u')}
       LEFT JOIN prompts p ON i.item_type = 'prompt' AND p.id = i.item_id AND p.user_id = ${viewerId}
@@ -897,6 +912,7 @@ export class DiscoveryService {
               itemId: r.item_id,
               promptKey: r.prompt_key,
               rose: r.rose,
+              pollAnswer: r.poll_answer,
               createdAt: new Date(r.created_at).toISOString(),
             },
           ]
@@ -1249,6 +1265,19 @@ export class DiscoveryService {
         .map((r) => r.userId)
         .filter((id) => id !== viewerId),
     );
+    // Phase 76d: prompt polls.
+    const polls = new Map(
+      (
+        await this.db
+          .select({
+            userId: schema.profilePolls.userId,
+            question: schema.profilePolls.question,
+            answers: schema.profilePolls.answers,
+          })
+          .from(schema.profilePolls)
+          .where(inArray(schema.profilePolls.userId, ids))
+      ).map((r) => [r.userId, { question: r.question, answers: r.answers }]),
+    );
     // Phase 68a: community matchmakers (a public badge, so members can check who really is one).
     const matchmakerSince = new Map(
       (
@@ -1295,6 +1324,7 @@ export class DiscoveryService {
           visiting: hidesDistance.has(p.userId) ? null : (visiting.get(p.userId) ?? null),
           about: toAbout(aboutById.get(p.userId)),
           voicePrompt: toVoicePrompt(aboutById.get(p.userId), cleanVoice),
+          poll: polls.get(p.userId) ?? null,
           accessNeeds: shownAccessNeeds(aboutById.get(p.userId)),
           identity: identityFor(p.userId),
           // Phase 66b: matches only (not the member's own preview, which shows what strangers see).

@@ -115,6 +115,12 @@ function ProfileContent() {
           label={t('interview.open')}
           onPress={() => router.push('/interview')}
         />
+        {/* Phase 76d: a prompt poll on my profile. */}
+        <Button
+          variant="secondary"
+          label={`📊 ${t('poll.open')}`}
+          onPress={() => router.push('/poll')}
+        />
         <Button
           variant="secondary"
           label={`💬 ${t('matchmaker.open')}`}

@@ -58,4 +58,4 @@ anchors on the other's answer and nobody is left exposed.
 - Dashboard: Branding → Community checkbox.
 - Tests: integration `game.test.ts` (4); e2e `pnpm --dir e2e game` (en, he, two browsers), axe 0;
   screenshots `197-question-game`, `admin-20-chat-game`.
-- Next: interest groups, prompt polls, video prompts, Secret Crush.
+- Next: interest groups, video prompts, Secret Crush.

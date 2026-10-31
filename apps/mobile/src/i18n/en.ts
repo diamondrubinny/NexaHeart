@@ -1294,6 +1294,22 @@ export const en = {
       kindness: 'What kindness from a stranger do you still remember?',
     },
   },
+  poll: {
+    open: 'A poll on my profile',
+    title: 'A poll on my profile',
+    intro:
+      'Ask a light question with two or three answers. Someone who likes your profile can pick one, and the pick comes with the like. Nobody sees counts or results.',
+    question: 'Your question',
+    questionHint: 'For example: the perfect first date?',
+    answer: 'Answer {{n}}',
+    remove: 'Remove the poll',
+    incomplete: 'Write a question and at least two answers.',
+    invalid: 'Each answer once, and keep them short.',
+    kinder: 'This poll may hurt. Please choose kinder words.',
+    noPick: 'No pick',
+    goesWithLike: 'Your pick goes to {{name}} only if you like the profile.',
+    picked: 'Picked: {{answer}}',
+  },
   rose: {
     send: 'Send a rose',
     sendHint: "Your one rose this week, to {{name}}. It's a like that stands out.",

@@ -236,6 +236,11 @@ export async function exportMemberData(
     .from(t.messages)
     .where(eq(t.messages.senderId, userId))
     .orderBy(asc(t.messages.createdAt));
+  // 76d: my prompt poll.
+  const [poll] = await db
+    .select({ question: t.profilePolls.question, answers: t.profilePolls.answers })
+    .from(t.profilePolls)
+    .where(eq(t.profilePolls.userId, userId));
   // 76c: my answers in the Question Game (the other person's are theirs).
   const gameAnswers = (
     await db
@@ -730,6 +735,7 @@ export async function exportMemberData(
     })),
     messagesYouSent: sent.map((m) => ({ ...m, at: iso(m.at), unsentAt: iso(m.unsentAt) })),
     questionGameAnswers: gameAnswers.map((g) => ({ ...g, at: iso(g.at) })),
+    promptPoll: poll ?? null,
     blocks: blocks.map((b) => ({ ...b, at: iso(b.at) })),
     reportsYouFiled: reportsFiled.map((r) => ({ ...r, at: iso(r.at) })),
     moderationAffectingYou: moderation.map((m) => ({

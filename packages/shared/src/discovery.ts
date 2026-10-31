@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import { POLL_ANSWERS_MAX, profilePollSchema } from './poll.js';
 import { matchModeSchema, publicTakeSchema } from './friends.js';
 import { z } from 'zod';
 import { genderSchema, intentionSchema, promptKeySchema, voicePromptSchema } from './profile.js';
@@ -100,6 +101,8 @@ export const publicProfileSchema = z.object({
   /** Interests, lifestyle and the opening question (phase 19); null until filled in. */
   about: aboutSchema.nullable(),
   voicePrompt: voicePromptSchema.nullable(),
+  /** Phase 76d: the member's prompt poll. Optional: partner cards never carry it. */
+  poll: profilePollSchema.nullable().optional(),
   /** Accessibility needs (phase 25), only those the member chose to show; usually empty. */
   accessNeeds: z.array(accessNeedSchema),
   /**
@@ -181,6 +184,13 @@ export const interactionInputSchema = z
     mode: matchModeSchema.optional(),
     /** Phase 76a: this week's rose (a like, dating mode only). */
     rose: z.literal(true).optional(),
+    /** Phase 76d: the answer picked on the target's prompt poll (likes only). */
+    pollChoice: z
+      .number()
+      .int()
+      .min(0)
+      .max(POLL_ANSWERS_MAX - 1)
+      .optional(),
   })
   .refine((v) => (v.itemType === undefined) === (v.itemId === undefined), {
     message: 'itemType and itemId go together',
@@ -193,6 +203,10 @@ export const interactionInputSchema = z
   .refine((v) => !v.rose || (v.kind === 'like' && (v.mode ?? 'date') === 'date'), {
     message: 'A rose is a like, in dating mode',
     path: ['rose'],
+  })
+  .refine((v) => v.pollChoice === undefined || v.kind === 'like', {
+    message: 'Only a like can carry a poll pick',
+    path: ['pollChoice'],
   });
 export type InteractionInput = z.infer<typeof interactionInputSchema>;
 
@@ -218,6 +232,8 @@ export const likeReceivedSchema = z.object({
   promptKey: promptKeySchema.nullable(),
   /** Phase 76a: sent as this week's rose. */
   rose: z.boolean(),
+  /** Phase 76d: the answer they picked on my poll, as it read then. */
+  pollAnswer: z.string().nullable(),
   createdAt: z.string(),
 });
 export type LikeReceived = z.infer<typeof likeReceivedSchema>;

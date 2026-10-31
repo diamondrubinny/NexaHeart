@@ -50,7 +50,11 @@ export default function Likes() {
         <PersonRow
           key={like.profile.id}
           profile={like.profile}
-          detail={describe(like)}
+          detail={
+            like.pollAnswer
+              ? `${describe(like)} · 📊 ${t('poll.picked', { answer: like.pollAnswer })}`
+              : describe(like)
+          }
           quote={like.comment}
           onPress={() => router.push(`/profile/${like.profile.id}`)}
         />

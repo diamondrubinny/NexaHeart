@@ -49,6 +49,7 @@
     "rose": "tsx rose.ts",
     "lenses": "tsx lenses.ts",
     "game": "tsx game.ts",
+    "poll": "tsx poll.ts",
     "devices": "tsx devices.ts",
     "reactions-undo": "tsx reactions-undo.ts",
     "chat-control": "tsx chat-control.ts",
