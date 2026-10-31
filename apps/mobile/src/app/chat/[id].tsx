@@ -58,6 +58,7 @@ import { useRealtime } from '../../lib/realtime';
 import { useStartCall } from '../../lib/call-queries';
 import { useAskToVerify } from '../../lib/liveness-queries';
 import { useInstance } from '../../lib/queries';
+import { useStartGame } from '../../lib/game-queries';
 import { MIN_TOUCH, radius, spacing, useColors } from '../../lib/theme';
 
 function ChatScreen() {
@@ -85,7 +86,11 @@ function ChatScreen() {
   const [recording, setRecording] = useState(false);
   const [callMenu, setCallMenu] = useState(false);
   const startCall = useStartCall(matchId);
-  const callsOn = useInstance().data?.calls ?? false;
+  const instance = useInstance().data;
+  const callsOn = instance?.calls ?? false;
+  // Phase 76c: the Question Game, unless the community turned it off.
+  const gameOn = instance?.community.chatGame !== false;
+  const startGame = useStartGame(matchId);
   const realtime = useRealtime();
   const [text, setText] = useState('');
   const [confirming, setConfirming] = useState<{ text: string; clientId: string }>();
@@ -620,6 +625,32 @@ function ChatScreen() {
               variant="secondary"
               label={t('askVerify.goVerify')}
               onPress={() => router.push('/verify')}
+            />
+          </View>
+        ) : null}
+        {/* Phase 76c: the Question Game (its own row: the composer has no room for another icon). */}
+        {!closed && gameOn ? (
+          <View style={styles.pad}>
+            <Button
+              variant="ghost"
+              label={`🎲 ${t('game.start')}`}
+              accessibilityLabel={t('game.start')}
+              hint={t('game.startHint', { name })}
+              loading={startGame.isPending}
+              onPress={() =>
+                startGame.mutate(
+                  { clientId: newClientId() },
+                  {
+                    onSuccess: () => setError(undefined),
+                    onError: (e) =>
+                      setError(
+                        e instanceof ApiRequestError && e.status === 409
+                          ? t('game.openAlready')
+                          : t('common.genericError'),
+                      ),
+                  },
+                )
+              }
             />
           </View>
         ) : null}

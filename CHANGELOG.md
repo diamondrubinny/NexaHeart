@@ -6,6 +6,11 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **The Question Game in chat**: either person opens a light question from a fixed list; neither
+  answer shows until both answered, then both show together. No AI; answers pass the same safety
+  check as messages, are in the data export and in report evidence (only what the reporter saw).
+  Communities can turn it off.
+
 - **Discovery lenses**: in Discover, narrow the same deck to shared interests, nearby, new here,
   the same goal, or people who show up to their dates. The filters both ways still apply; a lens
   only keeps who fits it. Communities choose which lenses to offer.

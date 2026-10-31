@@ -41,6 +41,7 @@ import type { AudioService } from './audio.js';
 import type { ChaperoneService } from '../chaperone/service.js';
 import type { LivenessService } from '../liveness/service.js';
 import type { AlbumService } from '../photos/album.js';
+import { gameView } from '../game/service.js';
 
 const {
   messages,
@@ -56,6 +57,7 @@ const {
   photoReveals,
   datePlans,
   calls,
+  chatGames,
 } = schema;
 
 type MessageRow = typeof messages.$inferSelect & {
@@ -64,6 +66,9 @@ type MessageRow = typeof messages.$inferSelect & {
   audioDurationMs: number | null;
   plan: typeof datePlans.$inferSelect | null;
   call: typeof calls.$inferSelect | null;
+  /** Phase 76c: a Question Game card, and the match's user_a (whose answer is answer_a). */
+  game?: typeof chatGames.$inferSelect | null;
+  gameUserA?: string | null;
   /** Phase 29b: who reacted with what (at most one each). */
   reactions?: { userId: string; emoji: string }[] | null;
   /** Phase 30: the quoted message. */
@@ -100,7 +105,7 @@ const asReaction = (emoji: string | undefined): ReactionEmoji | null =>
 
 /** A receiver sees media only after it passed scanning; senders see their own uploads. */
 const visibleTo = (viewerId: string) =>
-  sql`(${messages.kind} IN ('text', 'date', 'call') OR ${messages.senderId} = ${viewerId} OR ${photos.status} = 'clean' OR ${audioClips.status} = 'clean')`;
+  sql`(${messages.kind} IN ('text', 'date', 'call', 'game') OR ${messages.senderId} = ${viewerId} OR ${photos.status} = 'clean' OR ${audioClips.status} = 'clean')`;
 
 /** Phase 34: the same text (this long or more) to this many chats in 24 hours is reported. */
 export const SAME_MESSAGE_MIN_LENGTH = 15;
@@ -199,6 +204,7 @@ export function toView(row: MessageRow, viewerId: string, now = Date.now()): Mes
       voice: null,
       date: null,
       call: null,
+      game: null,
       hidden: false,
       harm: [],
       scam: [],
@@ -254,6 +260,10 @@ export function toView(row: MessageRow, viewerId: string, now = Date.now()): Mes
           }
         : null,
     call: row.kind === 'call' && row.call ? callView(row.call, viewerId) : null,
+    game:
+      row.kind === 'game' && row.game && row.gameUserA
+        ? gameView(row.game, row.gameUserA, viewerId)
+        : null,
     hidden: !mine && harm.length > 0,
     harm,
     scam: mine ? [] : scam,
@@ -374,8 +384,13 @@ export class ChatService {
         audioDurationMs: audioClips.durationMs,
         datePlanId: messages.datePlanId,
         callId: messages.callId,
+        gameId: messages.gameId,
         plan: datePlans,
         call: calls,
+        game: chatGames,
+        gameUserA: sql<
+          string | null
+        >`(SELECT m.user_a FROM matches m WHERE m.id = ${chatGames.matchId})`,
         reactions: sql<{ userId: string; emoji: string }[] | null>`(
           SELECT json_agg(json_build_object('userId', r.user_id, 'emoji', r.emoji))
           FROM message_reactions r WHERE r.message_id = "messages"."id")`,
@@ -394,6 +409,7 @@ export class ChatService {
       .leftJoin(audioClips, eq(audioClips.id, messages.audioId))
       .leftJoin(datePlans, eq(datePlans.id, messages.datePlanId))
       .leftJoin(calls, eq(calls.id, messages.callId))
+      .leftJoin(chatGames, eq(chatGames.id, messages.gameId))
       .where(where);
   }
 

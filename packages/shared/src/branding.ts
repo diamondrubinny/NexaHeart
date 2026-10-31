@@ -167,6 +167,8 @@ export const instanceSettingsInputSchema = z
       .array(z.enum(discoveryLenses))
       .max(discoveryLenses.length)
       .refine((l) => new Set(l).size === l.length),
+    /** Phase 76c: the Question Game in chat. */
+    chatGame: z.boolean(),
     /** Phase 76a: a free rose every week. */
     weeklyRose: z.boolean(),
     /** Phase 73b: share banned photos' hashes with partners, and accept theirs (for review). */

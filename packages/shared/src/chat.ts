@@ -11,6 +11,7 @@ import { deviceSecretSchema } from './account.js';
 import { localeSchema } from './common.js';
 import { callSchema, type CallStatus } from './calls.js';
 import { datePlanSchema } from './dates.js';
+import { gameViewSchema } from './game.js';
 
 export const MAX_MESSAGE_LENGTH = 2000;
 /** Each person must send this many text messages before images unlock in a chat. */
@@ -77,11 +78,14 @@ export const reactionKeys: Record<ReactionEmoji, string> = {
 /** null removes my reaction. */
 export const reactInputSchema = z.object({ emoji: reactionEmojiSchema.nullable() });
 
+/** What a chat line can be (phase 76c added the Question Game). */
+export const messageKinds = ['text', 'image', 'voice', 'date', 'call', 'game'] as const;
+
 export const messageViewSchema = z.object({
   id: z.uuid(),
   matchId: z.uuid(),
   mine: z.boolean(),
-  kind: z.enum(['text', 'image', 'voice', 'date', 'call']),
+  kind: z.enum(messageKinds),
   body: z.string().nullable(),
   image: z
     .object({ url: z.string().nullable(), status: z.enum(['pending', 'clean', 'rejected']) })
@@ -97,6 +101,8 @@ export const messageViewSchema = z.object({
   date: datePlanSchema.nullable(),
   /** A call line (kind 'call'); status changes are announced with message.updated. */
   call: callSchema.nullable(),
+  /** Phase 76c: a Question Game card (kind 'game'); answers are announced with message.updated. */
+  game: gameViewSchema.nullable(),
   /** Receiver-side safety: hidden until the person chooses to show it. */
   hidden: z.boolean(),
   harm: z.array(z.enum(harmCategories)),
@@ -113,7 +119,7 @@ export const messageViewSchema = z.object({
     .object({
       id: z.uuid(),
       mine: z.boolean(),
-      kind: z.enum(['text', 'image', 'voice', 'date', 'call']),
+      kind: z.enum(messageKinds),
       /** The first REPLY_PREVIEW_LENGTH characters of a text; null otherwise. */
       preview: z.string().nullable(),
       state: z.enum(['shown', 'hidden', 'unsent']),

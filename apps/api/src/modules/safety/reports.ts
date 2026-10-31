@@ -15,7 +15,26 @@ import type { DiscoveryService } from '../discovery/service.js';
 import type { AppEvents } from '../../lib/app-events.js';
 import { noEvents } from '../../lib/app-events.js';
 
-const { reports, reportEvidence, messages, matches, user, audioClips, calls } = schema;
+const { reports, reportEvidence, messages, matches, user, audioClips, calls, chatGames } = schema;
+
+/**
+ * A Question Game card as evidence (phase 76c): the question and the answers the reporter could
+ * see, i.e. their own, and the reported person's only once both answered.
+ */
+export function gameEvidence(
+  game: typeof chatGames.$inferSelect,
+  userA: string,
+  reporterId: string,
+): string {
+  const reporterIsA = userA === reporterId;
+  const own = reporterIsA ? game.answerA : game.answerB;
+  const theirs = game.revealedAt ? (reporterIsA ? game.answerB : game.answerA) : null;
+  return [
+    `Question game: ${game.question}`,
+    `Reported person's answer: ${theirs ?? '(not shown)'}`,
+    `Reporter's answer: ${own ?? '(none)'}`,
+  ].join('\n');
+}
 
 type ReportInput = z.output<typeof reportInputSchema>;
 
@@ -59,6 +78,7 @@ export class ReportService {
             opusKey: audioClips.opusKey,
             durationMs: audioClips.durationMs,
             call: calls,
+            game: chatGames,
             unsentAt: messages.unsentAt,
           })
           .from(messages)
@@ -67,6 +87,7 @@ export class ReportService {
             and(eq(audioClips.id, messages.audioId), eq(audioClips.status, 'clean')),
           )
           .leftJoin(calls, eq(calls.id, messages.callId))
+          .leftJoin(chatGames, eq(chatGames.id, messages.gameId))
           .where(
             and(
               eq(messages.matchId, match.id),
@@ -79,7 +100,7 @@ export class ReportService {
                   sql`${messages.unsentAt} > now() - make_interval(days => ${UNSENT_KEEP_DAYS})`,
                 ),
               ),
-              sql`((${messages.kind} IN ('text', 'date') AND ${messages.body} IS NOT NULL) OR (${messages.kind} = 'voice' AND ${audioClips.mediaKey} IS NOT NULL) OR (${messages.kind} = 'call' AND ${calls.id} IS NOT NULL))`,
+              sql`((${messages.kind} IN ('text', 'date') AND ${messages.body} IS NOT NULL) OR (${messages.kind} = 'voice' AND ${audioClips.mediaKey} IS NOT NULL) OR (${messages.kind} = 'call' AND ${calls.id} IS NOT NULL) OR (${messages.kind} = 'game' AND ${chatGames.id} IS NOT NULL))`,
             ),
           )
           .orderBy(messages.createdAt)
@@ -133,18 +154,20 @@ export class ReportService {
           body:
             m.kind === 'voice'
               ? null
-              : m.kind === 'call' && m.call
-                ? callSummary({
-                    video: m.call.video,
-                    status: m.call.status,
-                    durationSeconds:
-                      m.call.answeredAt && m.call.endedAt
-                        ? Math.round(
-                            (m.call.endedAt.getTime() - m.call.answeredAt.getTime()) / 1000,
-                          )
-                        : null,
-                  })
-                : m.body,
+              : m.kind === 'game' && m.game
+                ? gameEvidence(m.game, a, reporterId)
+                : m.kind === 'call' && m.call
+                  ? callSummary({
+                      video: m.call.video,
+                      status: m.call.status,
+                      durationSeconds:
+                        m.call.answeredAt && m.call.endedAt
+                          ? Math.round(
+                              (m.call.endedAt.getTime() - m.call.answeredAt.getTime()) / 1000,
+                            )
+                          : null,
+                    })
+                  : m.body,
           mediaKey,
           durationMs: m.kind === 'voice' ? m.durationMs : null,
           flags: m.flags,

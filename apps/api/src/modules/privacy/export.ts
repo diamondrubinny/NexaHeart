@@ -236,6 +236,29 @@ export async function exportMemberData(
     .from(t.messages)
     .where(eq(t.messages.senderId, userId))
     .orderBy(asc(t.messages.createdAt));
+  // 76c: my answers in the Question Game (the other person's are theirs).
+  const gameAnswers = (
+    await db
+      .select({
+        matchId: t.chatGames.matchId,
+        question: t.chatGames.question,
+        userA: t.matches.userA,
+        answerA: t.chatGames.answerA,
+        answerB: t.chatGames.answerB,
+        at: t.chatGames.createdAt,
+      })
+      .from(t.chatGames)
+      .innerJoin(t.matches, eq(t.matches.id, t.chatGames.matchId))
+      .where(or(eq(t.matches.userA, userId), eq(t.matches.userB, userId)))
+      .orderBy(asc(t.chatGames.createdAt))
+  )
+    .map((g) => ({
+      matchId: g.matchId,
+      question: g.question,
+      answer: g.userA === userId ? g.answerA : g.answerB,
+      at: g.at,
+    }))
+    .filter((g) => g.answer !== null);
   const blocks = await db
     .select({ blockedId: t.blocks.blockedId, at: t.blocks.createdAt })
     .from(t.blocks)
@@ -706,6 +729,7 @@ export async function exportMemberData(
       endedAt: iso(r.endedAt),
     })),
     messagesYouSent: sent.map((m) => ({ ...m, at: iso(m.at), unsentAt: iso(m.unsentAt) })),
+    questionGameAnswers: gameAnswers.map((g) => ({ ...g, at: iso(g.at) })),
     blocks: blocks.map((b) => ({ ...b, at: iso(b.at) })),
     reportsYouFiled: reportsFiled.map((r) => ({ ...r, at: iso(r.at) })),
     moderationAffectingYou: moderation.map((m) => ({

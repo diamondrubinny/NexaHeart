@@ -131,6 +131,9 @@ const en = {
       same_goal: 'The same goal',
       shows_up: 'Shows up to dates and events',
     },
+    chatGame: 'The question game in chat',
+    chatGameHelp:
+      'Either person can start a light question from a fixed list; neither answer shows until both answered. No AI.',
     weeklyRose: 'A free rose every week',
     weeklyRoseHelp:
       'Each member can send one rose a week: a like that stands out and comes first in the other person’s likes. Nobody can buy more.',
@@ -1287,6 +1290,9 @@ const he: Messages = {
       same_goal: 'אותה מטרה',
       shows_up: 'מגיעים לדייטים ולאירועים',
     },
+    chatGame: 'משחק שאלות בצ׳אט',
+    chatGameHelp:
+      'כל צד יכול לפתוח שאלה קלילה מתוך רשימה קבועה, ואף תשובה לא מוצגת עד ששני הצדדים ענו. בלי AI.',
     weeklyRose: 'ורד חינם בכל שבוע',
     weeklyRoseHelp:
       'כל חבר או חברה בקהילה יכולים לשלוח ורד אחד בשבוע: לייק שבולט ומופיע ראשון ברשימת הלייקים של הצד השני. אי אפשר לקנות עוד.',
