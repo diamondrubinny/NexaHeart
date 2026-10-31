@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import type {
+  DiscoveryLens,
   SystemStatus,
   UpdateStatusView,
   AdminCheckIn,
@@ -144,6 +145,7 @@ export interface AdminInstanceSettings {
   partnerCards: 'full' | 'minimal';
   shareTrustSignals: boolean;
   weeklyRose: boolean;
+  discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
   introductionHours: number;

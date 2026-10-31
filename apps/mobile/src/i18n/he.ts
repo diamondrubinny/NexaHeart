@@ -1216,6 +1216,16 @@ export const he: Translations = {
       unanswered: 'פתיחת השיחות שלי',
     },
   },
+  lens: {
+    label: 'רק',
+    all: 'כולם',
+    shared_interests: 'תחומי עניין משותפים',
+    nearby: 'קרוב אליי',
+    new_here: 'חדשים כאן',
+    same_goal: 'אותה מטרה',
+    shows_up: 'מגיעים לפגישות',
+    empty: 'אין כרגע אף אחד בתצוגה הזאת. אפשר לנסות אחרת.',
+  },
   rose: {
     send: 'לשלוח ורד',
     sendHint: 'הוורד היחיד שלך השבוע, אל {{name}}. לייק שבולט במיוחד.',

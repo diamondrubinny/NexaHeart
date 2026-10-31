@@ -19,6 +19,8 @@ import {
   type Gender,
   type IntroductionOrder,
   type PartnerCardMode,
+  discoveryLenses,
+  type DiscoveryLens,
 } from '@nexaheart/shared';
 import type { StoredObject } from '@nexaheart/storage';
 import { and, eq, sql } from 'drizzle-orm';
@@ -66,6 +68,7 @@ export interface AdminInstanceSettings {
   partnerCards: PartnerCardMode;
   shareTrustSignals: boolean;
   weeklyRose: boolean;
+  discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
   introductionHours: number;
@@ -151,6 +154,7 @@ export class InstanceService {
         photosAfterMatch: row?.photosAfterMatch ?? false,
         safetyResources: row?.safetyResources ?? null,
         riskCountries: row?.riskCountries ?? [],
+        lenses: row?.discoveryLenses ?? [...discoveryLenses],
         join: {
           minAge: Math.max(MIN_AGE, row?.joinMinAge ?? MIN_AGE),
           maxAge: row?.joinMaxAge ?? null,
@@ -235,6 +239,9 @@ export class InstanceService {
       partnerCards: row?.partnerCards === 'minimal' ? 'minimal' : 'full',
       shareTrustSignals: row?.shareTrustSignals ?? false,
       weeklyRose: row?.weeklyRose ?? true,
+      discoveryLenses: (row?.discoveryLenses ?? [...discoveryLenses]).filter(
+        (l): l is DiscoveryLens => (discoveryLenses as readonly string[]).includes(l),
+      ),
       communityCountry: row?.communityCountry ?? null,
       introductionOrder: row?.introductionOrder === 'women_first' ? 'women_first' : 'together',
       introductionHours: row?.introductionHours ?? 336,

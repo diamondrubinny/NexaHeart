@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { router } from 'expo-router';
-import type { PublicProfile } from '@nexaheart/shared';
+import type { DiscoveryLens, PublicProfile } from '@nexaheart/shared';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -25,13 +25,16 @@ import { travelLine } from '../../components/TravelMode';
 import { useDisplay } from '../../lib/display';
 import { useFederatedStatus } from '../../lib/federated-queries';
 import { useLocale } from '../../lib/locale';
-import { useDiscover, useMe, useTravel, useYourTurn } from '../../lib/queries';
+import { useDiscover, useInstance, useMe, useTravel, useYourTurn } from '../../lib/queries';
 import { radius, spacing, useColors } from '../../lib/theme';
 
 export default function Discover() {
   const { t } = useTranslation();
   const colors = useColors();
-  const feed = useDiscover();
+  // Phase 76b: the community's lenses; none chosen is everyone.
+  const offered = (useInstance().data?.community.lenses ?? []) as DiscoveryLens[];
+  const [lens, setLens] = useState<DiscoveryLens | 'all'>('all');
+  const feed = useDiscover(lens === 'all' ? undefined : lens);
   const onBreak = Boolean(useMe().data?.pause);
   const travel = useTravel();
   const yourTurn = useYourTurn();
@@ -125,6 +128,22 @@ export default function Discover() {
       <AccountNotices />
       <ReviewBanner />
       {deckSwitch}
+      {offered.length > 0 ? (
+        <ChoiceGroup<DiscoveryLens | 'all'>
+          label={t('lens.label')}
+          options={[
+            { value: 'all', label: t('lens.all') },
+            ...offered.map((l) => ({ value: l, label: t(`lens.${l}`) })),
+          ]}
+          selected={[lens]}
+          onChange={([v]) => {
+            if (!v) return;
+            setLens(v);
+            setIndex(0);
+            setRestored(undefined);
+          }}
+        />
+      ) : null}
       {travel.data ? <Banner tone="info" message={travelLine(travel.data, locale, t)} /> : null}
       {feed.error ? <Banner tone="error" message={t('common.genericError')} /> : null}
       {yourTurn.data && yourTurn.data.waiting >= yourTurn.data.limit ? (
@@ -154,8 +173,8 @@ export default function Discover() {
           <AppText variant="heading" center>
             {t('discover.emptyTitle')}
           </AppText>
-          <AppText variant="body" tone="muted" center>
-            {t('discover.emptyBody')}
+          <AppText variant="body" tone="muted" center testID="discover-empty">
+            {lens === 'all' ? t('discover.emptyBody') : t('lens.empty')}
           </AppText>
           <Button
             variant="secondary"

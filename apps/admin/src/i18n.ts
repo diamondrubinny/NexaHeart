@@ -121,6 +121,16 @@ const en = {
     faithModule: 'Faith module (faith, stream and observance)',
     faithModuleHelp:
       'Optional for members, with their consent: faith, stream (e.g. national-religious, Haredi, traditional, Sunni, Catholic) and observance questions (Shabbat, kashrut, halal, prayer…), with matching filters. Special-category data ⚖️: never ranked on, never sent to partners or an AI model.',
+    lenses: 'Views members can pick in Discover',
+    lensesHelp:
+      'Each narrows the same deck (it never shows anyone the filters would hide). Offer only the ones that help a community of your size.',
+    lensNames: {
+      shared_interests: 'Shared interests',
+      nearby: 'Nearby (within 5 km)',
+      new_here: 'New here (last 2 weeks)',
+      same_goal: 'The same goal',
+      shows_up: 'Shows up to dates and events',
+    },
     weeklyRose: 'A free rose every week',
     weeklyRoseHelp:
       'Each member can send one rose a week: a like that stands out and comes first in the other person’s likes. Nobody can buy more.',
@@ -1267,6 +1277,16 @@ const he: Messages = {
     faithModule: 'מודול אמונה (דת, זרם ושמירה)',
     faithModuleHelp:
       'לא חובה לחברי הקהילה, ובהסכמתם: דת, זרם (למשל דתי־לאומי, חרדי, מסורתי, סוני, קתולי) ושאלות שמירה (שבת, כשרות, חלאל, תפילה…), עם מסנני התאמה. מידע רגיש במיוחד ⚖️: לא משמש לדירוג ולא נשלח לשותפויות או למודל AI.',
+    lenses: 'תצוגות שאפשר לבחור בגילוי',
+    lensesHelp:
+      'כל תצוגה מצמצמת את אותה חבילה (היא אף פעם לא מציגה מישהו שהמסננים היו מסתירים). כדאי להציע רק את מה שמתאים לקהילה בגודל שלכם.',
+    lensNames: {
+      shared_interests: 'תחומי עניין משותפים',
+      nearby: 'קרוב (עד 5 ק"מ)',
+      new_here: 'חדשים כאן (בשבועיים האחרונים)',
+      same_goal: 'אותה מטרה',
+      shows_up: 'מגיעים לדייטים ולאירועים',
+    },
     weeklyRose: 'ורד חינם בכל שבוע',
     weeklyRoseHelp:
       'כל חבר או חברה בקהילה יכולים לשלוח ורד אחד בשבוע: לייק שבולט ומופיע ראשון ברשימת הלייקים של הצד השני. אי אפשר לקנות עוד.',

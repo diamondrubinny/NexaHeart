@@ -149,8 +149,25 @@ export const profilePreviewSchema = z.object({
 });
 export type ProfilePreview = z.infer<typeof profilePreviewSchema>;
 
+/**
+ * Phase 76b: discovery lenses: views of the same deck, never wider. The community chooses which
+ * to offer.
+ */
+export const discoveryLenses = [
+  'shared_interests',
+  'nearby',
+  'new_here',
+  'same_goal',
+  'shows_up',
+] as const;
+export type DiscoveryLens = (typeof discoveryLenses)[number];
+/** "Nearby": within this many kilometres. "New here": joined in the last this many days. */
+export const LENS_NEARBY_KM = 5;
+export const LENS_NEW_DAYS = 14;
+
 export const discoverQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(10),
+  lens: z.enum(discoveryLenses).optional(),
 });
 
 export const interactionInputSchema = z

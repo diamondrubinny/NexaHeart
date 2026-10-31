@@ -301,6 +301,8 @@ export const instanceSchema = z.object({
     safetyResources: z.string().nullable(),
     /** Phase 67b: countries the community considers dangerous (ISO codes). */
     riskCountries: z.array(z.string()),
+    /** Phase 76b: the discovery lenses this community offers. */
+    lenses: z.array(z.string()).optional(),
     /** Phase 62c: who may join (checked when the profile is created). */
     /** Phase 63: an age check is required (and a provider is configured). */
     ageCheck: z.boolean(),

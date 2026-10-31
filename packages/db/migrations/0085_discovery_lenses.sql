@@ -1,0 +1,1 @@
+ALTER TABLE "instance_settings" ADD COLUMN "discovery_lenses" text[] DEFAULT '{shared_interests,nearby,new_here,same_goal,shows_up}'::text[] NOT NULL;
