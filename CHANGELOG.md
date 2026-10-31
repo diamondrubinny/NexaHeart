@@ -6,6 +6,10 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **Prompt polls**: a question with 2-3 answers on your profile, in your own words. Someone who
+  likes your profile can pick one, and the pick arrives with the like ("Picked: …"). No counts and
+  no results are stored or shown.
+
 - **The Question Game in chat**: either person opens a light question from a fixed list; neither
   answer shows until both answered, then both show together. No AI; answers pass the same safety
   check as messages, are in the data export and in report evidence (only what the reporter saw).

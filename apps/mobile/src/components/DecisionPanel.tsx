@@ -13,6 +13,7 @@ import { radius, spacing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
 import { Banner } from './Banner';
 import { Button } from './Button';
+import { ChoiceGroup } from './Choice';
 import { ProfileCard, type LikeTarget } from './ProfileCard';
 import { TextField } from './TextField';
 
@@ -46,6 +47,9 @@ export function DecisionPanel({
   const client = useQueryClient();
   const [target, setTarget] = useState<LikeTarget>();
   const [comment, setComment] = useState('');
+  // Phase 76d: a pick on their prompt poll goes with the like ('none' = no pick).
+  const [pick, setPick] = useState<string>('none');
+  const poll = mode !== 'friend' ? profile.poll : null;
   const [error, setError] = useState<string>();
 
   const saveForLater = useSaveForLater();
@@ -72,7 +76,9 @@ export function DecisionPanel({
         ...(mode === 'friend' ? { mode } : {}),
         ...(kind === 'like' && target ? { itemType: target.itemType, itemId: target.itemId } : {}),
         ...(kind === 'like' && comment.trim() ? { comment: comment.trim() } : {}),
+        ...(kind === 'like' && poll && pick !== 'none' ? { pollChoice: Number(pick) } : {}),
       });
+      setPick('none');
       setTarget(undefined);
       setComment('');
       if (asRose) void client.invalidateQueries({ queryKey: roseKey });
@@ -97,6 +103,25 @@ export function DecisionPanel({
     <View style={styles.wrap}>
       {error ? <Banner tone="error" message={error} /> : null}
       <ProfileCard profile={profile} onLikeItem={setTarget} />
+      {poll ? (
+        <View
+          style={[styles.poll, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          testID="profile-poll"
+        >
+          <ChoiceGroup<string>
+            label={`📊 ${poll.question}`}
+            options={[
+              { value: 'none', label: t('poll.noPick') },
+              ...poll.answers.map((answer, i) => ({ value: String(i), label: answer })),
+            ]}
+            selected={[pick]}
+            onChange={([v]) => v && setPick(v)}
+          />
+          <AppText variant="caption" tone="muted">
+            {t('poll.goesWithLike', { name: profile.displayName })}
+          </AppText>
+        </View>
+      ) : null}
       {target ? (
         <View style={[styles.composer, { backgroundColor: colors.primarySoft }]}>
           <AppText variant="label" tone="primary">
@@ -185,6 +210,7 @@ export function DecisionPanel({
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
   composer: { padding: spacing.lg, borderRadius: radius.lg, gap: spacing.md },
+  poll: { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm },
   actions: { flexDirection: 'row', gap: spacing.md },
   action: { flex: 1 },
 });

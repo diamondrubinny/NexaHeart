@@ -610,6 +610,13 @@
       "when": 1793457787016,
       "tag": "0086_chat_game",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793460141268,
+      "tag": "0087_prompt_polls",
+      "breakpoints": true
     }
   ]
 }

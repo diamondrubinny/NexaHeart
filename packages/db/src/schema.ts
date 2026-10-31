@@ -508,6 +508,8 @@ export const interactions = pgTable(
     mode: varchar('mode', { length: 6 }).notNull().default('date'),
     /** Phase 76a: sent as the week's rose. */
     rose: boolean('rose').notNull().default(false),
+    /** Phase 76d: the answer picked on the target's poll, copied (a later edit doesn't change it). */
+    pollAnswer: varchar('poll_answer', { length: 40 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -2306,3 +2308,16 @@ export const chatGames = pgTable(
     uniqueIndex('chat_games_question_uq').on(t.matchId, t.question),
   ],
 );
+
+/**
+ * Phase 76d: a prompt poll on the profile, one per member, in their own words. No votes are
+ * counted: a pick travels with a like (interactions.poll_answer).
+ */
+export const profilePolls = pgTable('profile_polls', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  question: varchar('question', { length: 120 }).notNull(),
+  answers: text('answers').array().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
