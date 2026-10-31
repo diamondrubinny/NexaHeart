@@ -624,6 +624,13 @@
       "when": 1793462309836,
       "tag": "0088_interest_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793464513156,
+      "tag": "0089_group_departures",
+      "breakpoints": true
     }
   ]
 }

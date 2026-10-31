@@ -13,6 +13,12 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Fixed
 
+- **Security review of the new features (phase 77b)**: seven findings fixed — members who share
+  only a group can report each other; deleting a group post keeps it 30 days for moderation; group
+  lists and posts respect "hide me from my contacts" and incognito; the Question Game follows
+  "verified members only" and shows scam warnings; the "nearby" lens leaves out people who hide
+  their distance; scam warnings on group posts; reports after leaving a group. See
+  `docs/SECURITY_REVIEW.md`.
 - The loading spinner had no accessible name (and an `aria-label` on a plain container): the
   name is now on the spinner itself (axe `aria-progressbar-name`, `aria-prohibited-attr`).
 

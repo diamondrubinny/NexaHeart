@@ -16,30 +16,40 @@ import {
   type GroupPost,
   type GroupPosts,
   type GroupUpdate,
+  type ScamSignal,
+  scamSignals,
 } from '@nexaheart/shared';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { audit } from '../../lib/audit.js';
 import { blurredOwners } from '../../lib/photo-blur.js';
 import { HttpError } from '../../plugins/error-handler.js';
-import { notOnBreak, notSeparated } from '../discovery/visibility.js';
+import { notContactHidden, notOnBreak, notSeparated } from '../discovery/visibility.js';
 import { photoUrl } from '../me/service.js';
 
 const { interestGroups, groupMembers, groupPosts } = schema;
+
+/** Scam warnings stored with a post, as in chat (phase 77b). */
+function scamOf(flags: string[]): ScamSignal[] {
+  return scamSignals.filter((s) => flags.includes(`scam:${s}`));
+}
 
 const notFound = () => new HttpError(404, ErrorCode.NotFound, 'Resource not found.');
 
 type GroupRow = typeof interestGroups.$inferSelect;
 
 /**
- * Who of these people this viewer may see in a group, and who may see the viewer: active, not on
- * a break, not incognito, and no block or ended match between them, either way. Groups are social,
- * so dating filters (gender, ages) don't apply here.
+ * Who of these people this viewer may see in a group (as a member or as the author of a post), and
+ * who may see the viewer: active, not on a break, not incognito, not hidden from their contacts
+ * (phase 21), and no block or ended match between them, either way. Groups are social, so dating
+ * filters (gender, ages) don't apply here. Phase 77b: posts use the same rule as the member list,
+ * so a post can't reveal a member the list hides.
  */
 function visibleWith(viewerId: string, other: ReturnType<typeof sql>) {
   return sql`EXISTS (
     SELECT 1 FROM "user" u WHERE u.id = ${other} AND u.status = 'active'
       AND ${notOnBreak('u')} AND NOT u.incognito
-      AND ${notSeparated(sql`${viewerId}`, other)})`;
+      AND ${notSeparated(sql`${viewerId}`, other)}
+      AND ${notContactHidden(sql`${viewerId}`, other)})`;
 }
 
 /**
@@ -175,9 +185,20 @@ export class GroupService {
   }
 
   async leave(groupId: string, userId: string): Promise<void> {
-    await this.db
+    const left = await this.db
       .delete(groupMembers)
-      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+      .returning({ userId: groupMembers.userId });
+    // Phase 77b: remembered 30 days, so what I saw there can still be reported.
+    if (left.length > 0) {
+      await this.db
+        .insert(schema.groupDepartures)
+        .values({ groupId, userId, leftAt: new Date(this.now()) })
+        .onConflictDoUpdate({
+          target: [schema.groupDepartures.groupId, schema.groupDepartures.userId],
+          set: { leftAt: new Date(this.now()) },
+        });
+    }
   }
 
   async posts(groupId: string, viewerId: string, before?: string): Promise<GroupPosts> {
@@ -189,16 +210,16 @@ export class GroupService {
       id: string;
       author_id: string;
       body: string;
+      flags: string[];
       created_at: Date;
     }>(sql`
-      SELECT gp.id, gp.author_id, gp.body, gp.created_at FROM group_posts gp
+      SELECT gp.id, gp.author_id, gp.body, gp.flags, gp.created_at FROM group_posts gp
       WHERE gp.group_id = ${groupId} AND gp.removed_at IS NULL
         ${beforeAt ? sql`AND gp.created_at < ${beforeAt}` : sql``}
         AND (gp.author_id = ${viewerId} OR (
           -- Harmful posts are refused when written; flagged ones never reach others.
           NOT EXISTS (SELECT 1 FROM unnest(gp.flags) f WHERE f LIKE 'harm:%')
-          AND EXISTS (SELECT 1 FROM "user" u WHERE u.id = gp.author_id AND u.status = 'active'
-            AND ${notSeparated(sql`${viewerId}`, sql`gp.author_id`)})))
+          AND ${visibleWith(viewerId, sql`gp.author_id`)}))
       ORDER BY gp.created_at DESC, gp.id DESC
       LIMIT ${GROUP_POSTS_PAGE + 1}`);
     const page = rows.slice(0, GROUP_POSTS_PAGE);
@@ -212,6 +233,8 @@ export class GroupService {
               mine: r.author_id === viewerId,
               author,
               body: r.body,
+              // Phase 77b: others see the same scam warnings as in chat.
+              scam: r.author_id === viewerId ? [] : scamOf(r.flags),
               createdAt: new Date(r.created_at).toISOString(),
             },
           ]
@@ -246,17 +269,26 @@ export class GroupService {
       mine: true,
       author,
       body,
+      scam: [],
       createdAt: inserted!.createdAt.toISOString(),
     };
   }
 
-  /** Only the author deletes their own post (admins remove posts in the dashboard). */
+  /**
+   * Only the author deletes their own post. Phase 77b: like an unsent message, it disappears for
+   * everyone at once but is kept 30 days for moderation (a report can still copy it), then purged.
+   */
   async deletePost(postId: string, userId: string): Promise<void> {
-    const deleted = await this.db
-      .delete(groupPosts)
-      .where(and(eq(groupPosts.id, postId), eq(groupPosts.authorId, userId)))
-      .returning({ id: groupPosts.id });
-    if (deleted.length === 0) throw notFound();
+    const [post] = await this.db
+      .select({ removedAt: groupPosts.removedAt })
+      .from(groupPosts)
+      .where(and(eq(groupPosts.id, postId), eq(groupPosts.authorId, userId)));
+    if (!post) throw notFound();
+    if (post.removedAt) return; // already gone (removed by the admins or deleted before)
+    await this.db
+      .update(groupPosts)
+      .set({ removedAt: new Date(this.now()) })
+      .where(eq(groupPosts.id, postId));
   }
 
   // --- Dashboard ---

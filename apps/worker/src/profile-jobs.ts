@@ -114,6 +114,10 @@ export async function purgeUnsent(
   // Phase 76e: group posts the admins removed are kept as long, then deleted.
   const posts = await db.execute(sql`
     DELETE FROM group_posts WHERE removed_at < now() - interval '${days} days'`);
+  // Phase 77b: who left a group is remembered 30 days (for reports), then forgotten.
+  await db.execute(
+    sql`DELETE FROM group_departures WHERE left_at < now() - interval '${days} days'`,
+  );
   return { unsentPurged: purged.rowCount ?? 0, groupPostsPurged: posts.rowCount ?? 0 };
 }
 

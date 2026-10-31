@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { z } from 'zod';
+import { scamSignals } from './signals.js';
 
 /**
  * Phase 76c: the Question Game in chat. A fixed, reviewed list of light questions (translated in
@@ -57,5 +58,7 @@ export const gameViewSchema = z.object({
   /** Set once both answered. */
   theirAnswer: z.string().nullable(),
   revealed: z.boolean(),
+  /** Phase 77b: scam warnings on their revealed answer, as on a message. */
+  scam: z.array(z.enum(scamSignals)),
 });
 export type GameView = z.infer<typeof gameViewSchema>;

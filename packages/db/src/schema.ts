@@ -2376,3 +2376,21 @@ export const groupPosts = pgTable(
   },
   (t) => [index('group_posts_board_idx').on(t.groupId, t.createdAt)],
 );
+
+/**
+ * Phase 77b: who left a group, kept 30 days, so a member who left can still report what they saw
+ * there (and be reported for it). Purged by the worker.
+ */
+export const groupDepartures = pgTable(
+  'group_departures',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => interestGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    leftAt: timestamp('left_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+);

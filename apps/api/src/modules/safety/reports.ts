@@ -120,8 +120,12 @@ export class ReportService {
             SELECT gp.body, gp.flags, gp.created_at, g.name AS group_name
             FROM group_posts gp JOIN interest_groups g ON g.id = gp.group_id
             WHERE gp.id = ANY(${sql.param(groupPostIds)}::uuid[]) AND gp.author_id = ${targetId}
-              AND EXISTS (SELECT 1 FROM group_members gm
-                          WHERE gm.group_id = gp.group_id AND gm.user_id = ${reporterId})
+              AND (EXISTS (SELECT 1 FROM group_members gm
+                           WHERE gm.group_id = gp.group_id AND gm.user_id = ${reporterId})
+                -- Phase 77b: or a group the reporter left in the last 30 days.
+                OR EXISTS (SELECT 1 FROM group_departures gd
+                           WHERE gd.group_id = gp.group_id AND gd.user_id = ${reporterId}
+                             AND gd.left_at > now() - interval '30 days'))
             ORDER BY gp.created_at`)
           ).rows
         : [];

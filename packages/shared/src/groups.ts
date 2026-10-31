@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { z } from 'zod';
+import { scamSignals } from './signals.js';
 
 /**
  * Phase 76e: interest groups opened by the community's admins. Membership is personal data (a group
@@ -43,6 +44,8 @@ export const groupPostSchema = z.object({
   mine: z.boolean(),
   author: groupMemberSchema,
   body: z.string(),
+  /** Phase 77b: scam warnings on someone else's post (as in chat); empty on my own. */
+  scam: z.array(z.enum(scamSignals)),
   createdAt: z.string(),
 });
 export type GroupPost = z.infer<typeof groupPostSchema>;

@@ -537,7 +537,8 @@ export class ChatService {
     return rows[0]?.blocked ?? false;
   }
 
-  private async requireMayWrite(matchId: string, senderId: string, otherId: string) {
+  /** Also used by the Question Game (phase 77b): the same rules as writing a message. */
+  async requireMayWrite(matchId: string, senderId: string, otherId: string) {
     if (await this.writeNeedsVerification(matchId, senderId, otherId)) {
       throw new HttpError(
         403,

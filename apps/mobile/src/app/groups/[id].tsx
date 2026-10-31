@@ -96,6 +96,7 @@ function GroupScreen() {
           {when(post.createdAt)}
         </AppText>
       </View>
+      {post.scam.length > 0 ? <Banner tone="error" message={t('chat.scamBody')} /> : null}
       <AppText variant="body" userContent selectable>
         {post.body}
       </AppText>

@@ -14,6 +14,27 @@
 
 CI still fails on any **new** high or critical advisory.
 
+## Review of phases 76a-76e (2026-10-31, phase 77b)
+
+An independent read of the new server code (the weekly rose, discovery lenses, the Question Game,
+prompt polls, interest groups), tracing each claim through the helpers it relies on. Seven
+findings, all fixed in phase 77b with an integration test each (`security-77b.test.ts`):
+
+| #   | Severity    | Finding                                                                                                                  | Fix                                                                                                  |
+| --- | ----------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 1   | Medium-high | Two members who share only a group (outside each other's deck) couldn't report each other: the report was refused        | A shared group (or one left in the last 30 days) counts as contact for reports, and only for reports |
+| 2   | Medium      | The author's delete removed a group post for good, so harassment could be erased before the victim reported it           | Deleting hides the post at once and keeps it 30 days for moderation, like an unsent message          |
+| 3   | Medium      | Group lists ignored "hide me from my contacts"; the board also ignored incognito and breaks (a post revealed its author) | One rule for the member list and post authors, including contact hiding                              |
+| 4   | Low-medium  | The Question Game skipped "verified members only" and showed answers without scam warnings                               | The game follows the same writing rules as messages; a revealed answer carries scam warnings         |
+| 5   | Low         | The "nearby" lens confirmed the distance of people who hide it                                                           | People who hide their distance are left out of that lens                                             |
+| 6   | Low         | Scam signals on group posts were stored but never shown                                                                  | Others see the same scam warning as in chat                                                          |
+| 7   | Low         | A member who left a group could no longer report what they saw there                                                     | Leaving is remembered 30 days (`group_departures`, purged by the worker)                             |
+
+Verified fine in the same review: the game never reveals an answer early (message list, chat
+list, realtime, report evidence, export); group capacity, one open game per chat and the weekly
+rose hold under concurrency (locks/unique indexes); admin group routes sit behind the staff role
+and MFA; all SQL is parameterised; the export holds only the requester's own data.
+
 ## Code review (2026-10-21)
 
 Three independent read-only reviews (auth/staff/setup; chat/media/worker; discovery/profile/mobile)
