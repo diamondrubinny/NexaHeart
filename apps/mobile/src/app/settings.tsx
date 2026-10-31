@@ -44,6 +44,7 @@ import {
   useSetMetBadge,
 } from '../lib/queries';
 import { radius, spacing, useColors } from '../lib/theme';
+import { fontFor } from '../lib/fonts';
 import { PoweredBy } from '../components/PoweredBy';
 import { TakeABreak } from '../components/TakeABreak';
 import { TravelMode } from '../components/TravelMode';
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
   links: { gap: spacing.xs },
   link: {
     fontSize: 16,
-    fontWeight: '600',
+    ...fontFor('600'),
     textDecorationLine: 'underline',
     paddingVertical: spacing.sm,
   },

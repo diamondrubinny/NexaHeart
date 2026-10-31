@@ -41,6 +41,12 @@ The city list used by travel mode (apps/api/data/cities.json) is built from GeoN
 towns of 15,000+ in Israel and the Palestinian territories, with Hebrew, Arabic and Russian names
 picked from GeoNames' alternate names (scripts/build-cities.mjs).
 
+THIRD-PARTY FONT
+
+The apps bundle the Rubik typeface (https://github.com/googlefonts/rubik), Copyright 2015 The Rubik
+Project Authors, licensed under the SIL Open Font License 1.1 (licenses/Rubik-OFL.txt). It is used
+unmodified, through @expo-google-fonts/rubik and @fontsource-variable/rubik.
+
 EARLIER VERSIONS
 
 Versions of NexaHeart published before this NOTICE was added (22 October 2026) were released under

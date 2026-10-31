@@ -13,6 +13,7 @@ import { Screen } from '../../components/Screen';
 import { useInstance, useSetConsents } from '../../lib/queries';
 import { ONBOARDING_TOTAL } from '../../lib/routes';
 import { spacing, useColors } from '../../lib/theme';
+import { fontFor } from '../../lib/fonts';
 
 /** Version of optional, in-app consent texts (not legal documents). */
 const OPTIONAL_CONSENT_VERSION = '1';
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   group: { gap: spacing.xs },
   link: {
     fontSize: 15,
-    fontWeight: '600',
+    ...fontFor('600'),
     textDecorationLine: 'underline',
     paddingVertical: spacing.xs,
   },

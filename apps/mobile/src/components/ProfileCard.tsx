@@ -91,357 +91,365 @@ export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
     : '';
   const total = profile.photos.length;
 
+  // The shadow on an outer view: iOS drops shadows on a view with overflow hidden.
+  const { borderColor, borderWidth, ...shadow } = card;
+  delete (shadow as { backgroundColor?: string }).backgroundColor;
   return (
-    <View style={[styles.card, card, { backgroundColor: colors.surface }]}>
-      {photo ? (
-        <View style={styles.photoWrap}>
-          <RemoteImage
-            path={photo.url}
-            // The member's own description (phase 40), when there is one; a blurred photo
-            // (phase 66a) says why instead.
-            label={[
-              `${profile.displayName}, ${t('discover.photoOf', { n: index + 1, total })}`,
-              photo.blurred ? t('blur.hiddenLabel') : photo.description,
-            ]
-              .filter(Boolean)
-              .join('. ')}
-            style={styles.photo}
-            // The server already sends a tiny blurred copy; this only smooths it when scaled up.
-            {...(photo.blurred ? { blurRadius: 20 } : {})}
-          />
-          {photo.blurred ? (
-            <View
-              style={[styles.blurNote, { backgroundColor: colors.background }]}
-              testID="photo-blurred"
-            >
-              <AppText variant="label" center>
-                🔒{' '}
-                {afterMatch
-                  ? t('blur.afterMatch')
-                  : t('blur.byChoice', { name: profile.displayName })}
-              </AppText>
-            </View>
-          ) : null}
-          {total > 1 ? (
-            <View style={styles.photoNav}>
-              <IconButton
-                label={t('discover.prevPhoto')}
-                glyph={prevGlyph}
-                onPress={() => setIndex((i) => (i - 1 + total) % total)}
-              />
-              <View style={[styles.counter, { backgroundColor: colors.background }]}>
-                <AppText variant="caption" accessibilityLiveRegion="polite">
-                  {t('discover.photoOf', { n: index + 1, total })}
+    <View style={[styles.shadow, shadow]}>
+      <View style={[styles.card, { borderColor, borderWidth, backgroundColor: colors.surface }]}>
+        {photo ? (
+          <View style={styles.photoWrap}>
+            <RemoteImage
+              path={photo.url}
+              // The member's own description (phase 40), when there is one; a blurred photo
+              // (phase 66a) says why instead.
+              label={[
+                `${profile.displayName}, ${t('discover.photoOf', { n: index + 1, total })}`,
+                photo.blurred ? t('blur.hiddenLabel') : photo.description,
+              ]
+                .filter(Boolean)
+                .join('. ')}
+              style={styles.photo}
+              // The server already sends a tiny blurred copy; this only smooths it when scaled up.
+              {...(photo.blurred ? { blurRadius: 20 } : {})}
+            />
+            {photo.blurred ? (
+              <View
+                style={[styles.blurNote, { backgroundColor: colors.background }]}
+                testID="photo-blurred"
+              >
+                <AppText variant="label" center>
+                  🔒{' '}
+                  {afterMatch
+                    ? t('blur.afterMatch')
+                    : t('blur.byChoice', { name: profile.displayName })}
                 </AppText>
               </View>
-              <IconButton
-                label={t('discover.nextPhoto')}
-                glyph={nextGlyph}
-                onPress={() => setIndex((i) => (i + 1) % total)}
-              />
-            </View>
-          ) : null}
-          {onLikeItem ? (
-            <IconButton
-              label={t('discover.likePhotoLabel')}
-              glyph="♥"
-              onPress={() =>
-                onLikeItem({
-                  itemType: 'photo',
-                  itemId: photo.id,
-                  label: t('discover.likePhotoLabel'),
-                })
-              }
-              style={styles.photoLike}
-            />
-          ) : null}
-        </View>
-      ) : null}
-
-      <View style={styles.body}>
-        <AppText variant="title">
-          {profile.displayName}, {profile.age}
-        </AppText>
-        <View style={styles.meta}>
-          {profile.verified ? (
-            <View
-              style={[styles.verified, { backgroundColor: colors.primarySoft }]}
-              accessible
-              accessibilityLabel={t('badge.verifiedLabel')}
-            >
-              <AppText variant="label" tone="primary">
-                ✓ {t('badge.verified')}
-              </AppText>
-            </View>
-          ) : null}
-          {profile.metInPerson ? (
-            <View
-              testID="met-badge"
-              style={[styles.verified, { backgroundColor: colors.successSoft }]}
-              accessible
-              accessibilityLabel={t('badge.metLabel')}
-            >
-              <AppText variant="label" tone="success">
-                🤝 {t('badge.met')}
-              </AppText>
-            </View>
-          ) : null}
-          {profile.matchmakerSince ? (
-            // Phase 68a: named by the community's admins, so members can check who really is one.
-            <View
-              testID="matchmaker-badge"
-              style={[styles.verified, { backgroundColor: colors.primarySoft }]}
-              accessible
-              accessibilityLabel={t('intro.badgeLabel', {
-                date: new Date(profile.matchmakerSince).toLocaleDateString(i18n.language, {
-                  year: 'numeric',
-                  month: 'long',
-                }),
-              })}
-            >
-              <AppText variant="label" tone="primary">
-                💌 {t('intro.badge')}
-              </AppText>
-            </View>
-          ) : null}
-          {profile.atEvent ? (
-            <View
-              testID="event-badge"
-              style={[styles.verified, { backgroundColor: colors.successSoft }]}
-              accessible
-              accessibilityLabel={t('badge.eventLabel')}
-            >
-              <AppText variant="label" tone="success">
-                📍 {t('badge.event')}
-              </AppText>
-            </View>
-          ) : null}
-          <AppText variant="label" tone="primary">
-            {t(`intention.${profile.intention}`)}
-          </AppText>
-          {profile.visiting ? (
-            <AppText variant="caption" tone="muted" testID="visiting">
-              ✈️ {t('travel.visiting', { city: cityName(profile.visiting.names, locale) })}
-            </AppText>
-          ) : profile.distance ? (
-            <AppText variant="caption" tone="muted">
-              {t(`distance.${profile.distance}`)}
-            </AppText>
-          ) : null}
-        </View>
-        {faithLine ? (
-          // Phase 62b: only while the community's faith module is on.
-          <AppText
-            variant="body"
-            testID="faith"
-            accessibilityLabel={t('faith.cardLabel', { text: faithLine })}
-          >
-            {faithLine}
-          </AppText>
-        ) : null}
-        {identityLine ? (
-          // Phase 62a: only what the member shows this viewer; one sentence for screen readers.
-          <AppText
-            variant="body"
-            testID="identity"
-            accessibilityLabel={t('identity.cardLabel', { text: identityLine })}
-          >
-            {identityLine}
-          </AppText>
-        ) : null}
-        {profile.matchNote ? (
-          // Phase 66b: only sent to someone the member matched with.
-          <View style={[styles.take, { backgroundColor: colors.primarySoft }]} testID="match-note">
-            <AppText variant="label" tone="primary">
-              {t('matchNote.cardTitle', { name: profile.displayName })}
-            </AppText>
-            <AppText variant="body" userContent>
-              {profile.matchNote}
-            </AppText>
-          </View>
-        ) : null}
-        {profile.accessNeeds.length > 0 ? (
-          // Phase 25: only needs the member chose to show; one sentence for screen readers.
-          <AppText variant="body" testID="access-needs">
-            ♿ {profile.accessNeeds.map((need) => t(`access.short.${need}`)).join(' · ')}
-          </AppText>
-        ) : null}
-
-        {profile.reasons.length > 0 ? (
-          <View style={styles.section}>
-            <AppText variant="label">{t('discover.whyTitle')}</AppText>
-            <View style={styles.chips} role="list">
-              {profile.reasons.map((reason) => (
-                <View
-                  key={reason}
-                  role="listitem"
-                  style={[styles.chip, { backgroundColor: colors.primarySoft }]}
-                >
-                  <AppText variant="caption" tone="primary">
-                    ✦ {t(`reason.${reason}`)}
+            ) : null}
+            {total > 1 ? (
+              <View style={styles.photoNav}>
+                <IconButton
+                  label={t('discover.prevPhoto')}
+                  glyph={prevGlyph}
+                  onPress={() => setIndex((i) => (i - 1 + total) % total)}
+                />
+                <View style={[styles.counter, { backgroundColor: colors.background }]}>
+                  <AppText variant="caption" accessibilityLiveRegion="polite">
+                    {t('discover.photoOf', { n: index + 1, total })}
                   </AppText>
                 </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {profile.bio ? (
-          <View style={styles.section}>
-            <AppText variant="label">
-              {t('discover.aboutPerson', { name: profile.displayName })}
-            </AppText>
-            <AppText variant="body" userContent>
-              {profile.bio}
-            </AppText>
-          </View>
-        ) : null}
-
-        {/* Phase 76g: their song (plain text: no music service is connected). */}
-        {profile.anthem ? (
-          <View
-            style={[
-              styles.prompt,
-              { backgroundColor: colors.background, borderColor: colors.border },
-            ]}
-            testID="profile-anthem"
-          >
-            <View style={styles.promptText}>
-              <AppText variant="caption" tone="muted">
-                🎵 {t('anthem.label')}
-              </AppText>
-              <AppText variant="heading" userContent>
-                {t('anthem.line', { title: profile.anthem.title, artist: profile.anthem.artist })}
-              </AppText>
-            </View>
+                <IconButton
+                  label={t('discover.nextPhoto')}
+                  glyph={nextGlyph}
+                  onPress={() => setIndex((i) => (i + 1) % total)}
+                />
+              </View>
+            ) : null}
             {onLikeItem ? (
               <IconButton
-                label={t('discover.likeItemLabel', { item: t('anthem.label') })}
+                label={t('discover.likePhotoLabel')}
                 glyph="♥"
                 onPress={() =>
                   onLikeItem({
-                    itemType: 'anthem',
-                    itemId: profile.anthem!.id,
-                    label: t('anthem.label'),
+                    itemType: 'photo',
+                    itemId: photo.id,
+                    label: t('discover.likePhotoLabel'),
                   })
                 }
+                style={styles.photoLike}
               />
             ) : null}
           </View>
         ) : null}
 
-        {profile.about ? (
-          <AboutSection about={profile.about} name={profile.displayName} mine={mine} />
-        ) : null}
-
-        {profile.friendTakes.length > 0 ? (
-          <View style={styles.takes} testID="friend-takes">
-            <AppText variant="heading">
-              {t('takes.onProfile', { name: profile.displayName })}
+        <View style={styles.body}>
+          <AppText variant="title">
+            {profile.displayName}, {profile.age}
+          </AppText>
+          <View style={styles.meta}>
+            {profile.verified ? (
+              <View
+                style={[styles.verified, { backgroundColor: colors.primarySoft }]}
+                accessible
+                accessibilityLabel={t('badge.verifiedLabel')}
+              >
+                <AppText variant="label" tone="primary">
+                  ✓ {t('badge.verified')}
+                </AppText>
+              </View>
+            ) : null}
+            {profile.metInPerson ? (
+              <View
+                testID="met-badge"
+                style={[styles.verified, { backgroundColor: colors.successSoft }]}
+                accessible
+                accessibilityLabel={t('badge.metLabel')}
+              >
+                <AppText variant="label" tone="success">
+                  🤝 {t('badge.met')}
+                </AppText>
+              </View>
+            ) : null}
+            {profile.matchmakerSince ? (
+              // Phase 68a: named by the community's admins, so members can check who really is one.
+              <View
+                testID="matchmaker-badge"
+                style={[styles.verified, { backgroundColor: colors.primarySoft }]}
+                accessible
+                accessibilityLabel={t('intro.badgeLabel', {
+                  date: new Date(profile.matchmakerSince).toLocaleDateString(i18n.language, {
+                    year: 'numeric',
+                    month: 'long',
+                  }),
+                })}
+              >
+                <AppText variant="label" tone="primary">
+                  💌 {t('intro.badge')}
+                </AppText>
+              </View>
+            ) : null}
+            {profile.atEvent ? (
+              <View
+                testID="event-badge"
+                style={[styles.verified, { backgroundColor: colors.successSoft }]}
+                accessible
+                accessibilityLabel={t('badge.eventLabel')}
+              >
+                <AppText variant="label" tone="success">
+                  📍 {t('badge.event')}
+                </AppText>
+              </View>
+            ) : null}
+            <AppText variant="label" tone="primary">
+              {t(`intention.${profile.intention}`)}
             </AppText>
-            <View
-              style={styles.takes}
-              role="list"
-              accessibilityLabel={t('takes.onProfile', { name: profile.displayName })}
+            {profile.visiting ? (
+              <AppText variant="caption" tone="muted" testID="visiting">
+                ✈️ {t('travel.visiting', { city: cityName(profile.visiting.names, locale) })}
+              </AppText>
+            ) : profile.distance ? (
+              <AppText variant="caption" tone="muted">
+                {t(`distance.${profile.distance}`)}
+              </AppText>
+            ) : null}
+          </View>
+          {faithLine ? (
+            // Phase 62b: only while the community's faith module is on.
+            <AppText
+              variant="body"
+              testID="faith"
+              accessibilityLabel={t('faith.cardLabel', { text: faithLine })}
             >
-              {profile.friendTakes.map((take, i) => (
-                <View
-                  key={i}
-                  role="listitem"
-                  style={[styles.take, { backgroundColor: colors.primarySoft }]}
-                >
-                  <AppText variant="body" userContent>
-                    {t('ghosting.quote', { message: take.text })}
-                  </AppText>
-                  <AppText variant="caption" tone="muted" userContent>
-                    {t('takes.byline', {
-                      name: take.name,
-                      relation: t(`takes.relations.${take.relation}`),
-                    })}
-                  </AppText>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {profile.videoPrompt ? (
-          <View
-            style={[
-              styles.prompt,
-              { backgroundColor: colors.background, borderColor: colors.border },
-            ]}
-            testID="profile-video"
-          >
-            <View style={styles.promptText}>
-              <AppText variant="caption" tone="muted">
-                🎬 {t(`prompt.${profile.videoPrompt.promptKey}`)}
-              </AppText>
-              <VideoPrompt
-                url={profile.videoPrompt.url}
-                posterUrl={profile.videoPrompt.posterUrl}
-                label={t(`prompt.${profile.videoPrompt.promptKey}`)}
-                durationMs={profile.videoPrompt.durationMs}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {profile.voicePrompt ? (
-          <View
-            style={[
-              styles.prompt,
-              { backgroundColor: colors.background, borderColor: colors.border },
-            ]}
-            testID="profile-voice-prompt"
-          >
-            <View style={styles.promptText}>
-              <AppText variant="caption" tone="muted">
-                🎙️ {t(`prompt.${profile.voicePrompt.promptKey}`)}
-              </AppText>
-              <VoicePlayer
-                path={`/v1/audio/${profile.voicePrompt.audioId}`}
-                durationMs={profile.voicePrompt.durationMs}
-                onPrimary={false}
-              />
-              <VoiceTranscript
-                path={`/v1/audio/${profile.voicePrompt.audioId}`}
-                onPrimary={false}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {profile.prompts.map((prompt) => {
-          const question = t(`prompt.${prompt.promptKey}`);
-          return (
+              {faithLine}
+            </AppText>
+          ) : null}
+          {identityLine ? (
+            // Phase 62a: only what the member shows this viewer; one sentence for screen readers.
+            <AppText
+              variant="body"
+              testID="identity"
+              accessibilityLabel={t('identity.cardLabel', { text: identityLine })}
+            >
+              {identityLine}
+            </AppText>
+          ) : null}
+          {profile.matchNote ? (
+            // Phase 66b: only sent to someone the member matched with.
             <View
-              key={prompt.id}
+              style={[styles.take, { backgroundColor: colors.primarySoft }]}
+              testID="match-note"
+            >
+              <AppText variant="label" tone="primary">
+                {t('matchNote.cardTitle', { name: profile.displayName })}
+              </AppText>
+              <AppText variant="body" userContent>
+                {profile.matchNote}
+              </AppText>
+            </View>
+          ) : null}
+          {profile.accessNeeds.length > 0 ? (
+            // Phase 25: only needs the member chose to show; one sentence for screen readers.
+            <AppText variant="body" testID="access-needs">
+              ♿ {profile.accessNeeds.map((need) => t(`access.short.${need}`)).join(' · ')}
+            </AppText>
+          ) : null}
+
+          {profile.reasons.length > 0 ? (
+            <View style={styles.section}>
+              <AppText variant="label">{t('discover.whyTitle')}</AppText>
+              <View style={styles.chips} role="list">
+                {profile.reasons.map((reason) => (
+                  <View
+                    key={reason}
+                    role="listitem"
+                    style={[styles.chip, { backgroundColor: colors.primarySoft }]}
+                  >
+                    <AppText variant="caption" tone="primary">
+                      ✦ {t(`reason.${reason}`)}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {profile.bio ? (
+            <View style={styles.section}>
+              <AppText variant="label">
+                {t('discover.aboutPerson', { name: profile.displayName })}
+              </AppText>
+              <AppText variant="body" userContent>
+                {profile.bio}
+              </AppText>
+            </View>
+          ) : null}
+
+          {/* Phase 76g: their song (plain text: no music service is connected). */}
+          {profile.anthem ? (
+            <View
               style={[
                 styles.prompt,
                 { backgroundColor: colors.background, borderColor: colors.border },
               ]}
+              testID="profile-anthem"
             >
               <View style={styles.promptText}>
                 <AppText variant="caption" tone="muted">
-                  {question}
+                  🎵 {t('anthem.label')}
                 </AppText>
                 <AppText variant="heading" userContent>
-                  {prompt.answer}
+                  {t('anthem.line', { title: profile.anthem.title, artist: profile.anthem.artist })}
                 </AppText>
               </View>
               {onLikeItem ? (
                 <IconButton
-                  label={t('discover.likeItemLabel', { item: question })}
+                  label={t('discover.likeItemLabel', { item: t('anthem.label') })}
                   glyph="♥"
                   onPress={() =>
-                    onLikeItem({ itemType: 'prompt', itemId: prompt.id, label: question })
+                    onLikeItem({
+                      itemType: 'anthem',
+                      itemId: profile.anthem!.id,
+                      label: t('anthem.label'),
+                    })
                   }
                 />
               ) : null}
             </View>
-          );
-        })}
+          ) : null}
+
+          {profile.about ? (
+            <AboutSection about={profile.about} name={profile.displayName} mine={mine} />
+          ) : null}
+
+          {profile.friendTakes.length > 0 ? (
+            <View style={styles.takes} testID="friend-takes">
+              <AppText variant="heading">
+                {t('takes.onProfile', { name: profile.displayName })}
+              </AppText>
+              <View
+                style={styles.takes}
+                role="list"
+                accessibilityLabel={t('takes.onProfile', { name: profile.displayName })}
+              >
+                {profile.friendTakes.map((take, i) => (
+                  <View
+                    key={i}
+                    role="listitem"
+                    style={[styles.take, { backgroundColor: colors.primarySoft }]}
+                  >
+                    <AppText variant="body" userContent>
+                      {t('ghosting.quote', { message: take.text })}
+                    </AppText>
+                    <AppText variant="caption" tone="muted" userContent>
+                      {t('takes.byline', {
+                        name: take.name,
+                        relation: t(`takes.relations.${take.relation}`),
+                      })}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {profile.videoPrompt ? (
+            <View
+              style={[
+                styles.prompt,
+                { backgroundColor: colors.background, borderColor: colors.border },
+              ]}
+              testID="profile-video"
+            >
+              <View style={styles.promptText}>
+                <AppText variant="caption" tone="muted">
+                  🎬 {t(`prompt.${profile.videoPrompt.promptKey}`)}
+                </AppText>
+                <VideoPrompt
+                  url={profile.videoPrompt.url}
+                  posterUrl={profile.videoPrompt.posterUrl}
+                  label={t(`prompt.${profile.videoPrompt.promptKey}`)}
+                  durationMs={profile.videoPrompt.durationMs}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {profile.voicePrompt ? (
+            <View
+              style={[
+                styles.prompt,
+                { backgroundColor: colors.background, borderColor: colors.border },
+              ]}
+              testID="profile-voice-prompt"
+            >
+              <View style={styles.promptText}>
+                <AppText variant="caption" tone="muted">
+                  🎙️ {t(`prompt.${profile.voicePrompt.promptKey}`)}
+                </AppText>
+                <VoicePlayer
+                  path={`/v1/audio/${profile.voicePrompt.audioId}`}
+                  durationMs={profile.voicePrompt.durationMs}
+                  onPrimary={false}
+                />
+                <VoiceTranscript
+                  path={`/v1/audio/${profile.voicePrompt.audioId}`}
+                  onPrimary={false}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {profile.prompts.map((prompt) => {
+            const question = t(`prompt.${prompt.promptKey}`);
+            return (
+              <View
+                key={prompt.id}
+                style={[
+                  styles.prompt,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.promptText}>
+                  <AppText variant="caption" tone="muted">
+                    {question}
+                  </AppText>
+                  <AppText variant="heading" userContent>
+                    {prompt.answer}
+                  </AppText>
+                </View>
+                {onLikeItem ? (
+                  <IconButton
+                    label={t('discover.likeItemLabel', { item: question })}
+                    glyph="♥"
+                    onPress={() =>
+                      onLikeItem({ itemType: 'prompt', itemId: prompt.id, label: question })
+                    }
+                  />
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -451,6 +459,7 @@ const styles = StyleSheet.create({
   takes: { gap: spacing.sm },
   take: { padding: spacing.md, borderRadius: radius.md, gap: spacing.xs },
   verified: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.lg },
+  shadow: { borderRadius: radius.lg },
   card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
   photoWrap: { width: '100%', aspectRatio: 4 / 5 },
   photo: { width: '100%', height: '100%' },

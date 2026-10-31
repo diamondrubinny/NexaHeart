@@ -98,6 +98,11 @@ body {
   grid-template-columns: 1fr;
   grid-template-rows: auto auto 1fr auto;
 }
+/* Grid items default to min-width: auto, so a wide table would stretch the column past the
+   screen; it scrolls inside its own .table-wrap instead. */
+.layout > * {
+  min-width: 0;
+}
 @media (min-width: 64rem) {
   .layout:not(.layout-public) {
     grid-template-columns: var(--side-width) 1fr;
@@ -201,7 +206,7 @@ a {
     position: sticky;
     top: 3.6rem;
     align-self: start;
-    height: calc(100vh - 3.6rem);
+    max-height: calc(100vh - 3.6rem);
     overflow-y: auto;
     border-block-end: 0;
     border-inline-end: 1px solid var(--border);
@@ -252,6 +257,8 @@ a {
 }
 
 main {
+  /* Auto margins would size a grid item to its content (a wide table); it fills its column. */
+  width: 100%;
   max-width: 76rem;
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
@@ -482,6 +489,9 @@ select:hover {
 }
 
 .table-wrap {
+  /* Positioned, so visually hidden text inside (absolutely positioned) is clipped with the table
+     instead of widening the page. */
+  position: relative;
   overflow-x: auto;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -977,5 +987,19 @@ tbody tr:hover {
   *::after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* At large zoom or on small screens the header may wrap: it scrolls away instead of covering the
+   page (WCAG 1.4.10), and focused elements are never hidden under it. */
+html {
+  scroll-padding-top: 4.5rem;
+}
+@media (max-width: 40rem), (max-height: 30rem) {
+  .topbar {
+    position: static;
+  }
+  html {
+    scroll-padding-top: 0;
   }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import i18n from 'i18next';
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 import { useDisplay } from '../lib/display';
 import { fontFor, type FontWeight } from '../lib/fonts';
@@ -45,8 +46,10 @@ export function AppText({
 }: AppTextProps) {
   const colors = useColors();
   const { scale } = useDisplay();
-  const { weight, ...metrics } = sizes[variant];
-  const size = { ...metrics, ...fontFor(weight) };
+  const { weight, letterSpacing, ...metrics } = sizes[variant];
+  // Tracking would break the joins of Arabic letters.
+  const tracking = letterSpacing && !i18n.language?.startsWith('ar') ? { letterSpacing } : {};
+  const size = { ...metrics, ...tracking, ...fontFor(weight) };
   const color = {
     default: colors.text,
     muted: colors.muted,

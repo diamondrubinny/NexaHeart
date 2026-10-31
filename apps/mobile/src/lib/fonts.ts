@@ -23,13 +23,13 @@ const families: Record<FontWeight, keyof typeof fontAssets> = {
   '700': 'Rubik_700Bold',
 };
 
-/** Native needs one family per weight; the web also gets system fonts while Rubik loads. */
-export function fontFor(weight: FontWeight): { fontFamily: string; fontWeight?: FontWeight } {
+/**
+ * One family per weight: each file is registered as its own family, without a weight descriptor, so
+ * no `fontWeight` goes with Rubik (the browser would draw a synthetic bold on top of the bold file).
+ */
+export function fontFor(weight: FontWeight): { fontFamily: string } {
   const family = families[weight];
   return Platform.OS === 'web'
-    ? {
-        fontFamily: `${family}, system-ui, -apple-system, "Segoe UI", sans-serif`,
-        fontWeight: weight,
-      }
+    ? { fontFamily: `${family}, system-ui, -apple-system, "Segoe UI", sans-serif` }
     : { fontFamily: family };
 }

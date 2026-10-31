@@ -3,7 +3,7 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text, View } from 'react-native';
+import { PixelRatio, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../components/Icon';
 import { Loading } from '../../components/Loading';
@@ -23,6 +23,8 @@ const icons = {
   profile: 'profile',
 } as const;
 /** Easy mode (phase 25): three tabs; Picks and Likes open from Discover instead. */
+/** The tab labels follow the system text size up to this factor. */
+const LABEL_MAX_SCALE = 1.5;
 const EASY_HIDDEN = new Set<keyof typeof icons>(['picks', 'likes']);
 
 export default function TabsLayout() {
@@ -30,6 +32,7 @@ export default function TabsLayout() {
   const colors = useColors();
   const { easy } = useDisplay();
   const insets = useSafeAreaInsets();
+  const labelScale = Math.min(PixelRatio.getFontScale(), LABEL_MAX_SCALE);
   const session = authClient.useSession();
   const me = useMe(Boolean(session.data));
   if (session.isPending || (session.data && me.isPending)) return <Loading />;
@@ -48,7 +51,8 @@ export default function TabsLayout() {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: (easy ? 88 : 72) + insets.bottom,
+          // The label grows with the system text size (capped at 1.5×); the bar grows with it.
+          height: (easy ? 66 : 54) + Math.ceil((easy ? 22 : 18) * labelScale) + insets.bottom,
           paddingTop: 6,
           paddingBottom: 8 + insets.bottom,
           ...elevation.bar,
@@ -120,6 +124,7 @@ function AppTabLabel({
         ...fontFor(focused ? '700' : '500'),
       }}
       numberOfLines={1}
+      maxFontSizeMultiplier={LABEL_MAX_SCALE}
     >
       {children}
     </Text>

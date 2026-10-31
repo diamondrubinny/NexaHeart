@@ -135,7 +135,26 @@ function Shell({
   // Phase 79: the menu grouped into sections, as a side bar on wide screens; on narrow screens
   // it opens from a Menu button.
   const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => setMenuOpen(false), [current]);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuWasOpen = useRef(false);
+  menuWasOpen.current = menuOpen;
+  useEffect(() => {
+    // A page picked from the open menu: the menu closes, and focus moves to the page (it would
+    // otherwise fall to the top of the document with the hidden link).
+    if (!menuWasOpen.current) return;
+    setMenuOpen(false);
+    document.getElementById('main')?.focus();
+  }, [current]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButton.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
   type Key = Parameters<typeof link>[0];
   const sections: { key: 'moderation' | 'community' | 'settings'; links: Key[] }[] = [
     {
@@ -168,6 +187,7 @@ function Shell({
           {signedIn ? (
             <button
               type="button"
+              ref={menuButton}
               className="button small menu-toggle"
               aria-expanded={menuOpen}
               aria-controls="side-menu"
