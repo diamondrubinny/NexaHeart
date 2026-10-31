@@ -15,7 +15,7 @@ import { VoicePlayer } from './VoicePlayer';
 import { VoiceTranscript } from './VoiceTranscript';
 import { useInstance, useMe } from '../lib/queries';
 
-export type LikeTarget = { itemType: 'photo' | 'prompt'; itemId: string; label: string };
+export type LikeTarget = { itemType: 'photo' | 'prompt' | 'anthem'; itemId: string; label: string };
 
 interface ProfileCardProps {
   profile: PublicProfile;
@@ -292,6 +292,39 @@ export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
             <AppText variant="body" userContent>
               {profile.bio}
             </AppText>
+          </View>
+        ) : null}
+
+        {/* Phase 76g: their song (plain text: no music service is connected). */}
+        {profile.anthem ? (
+          <View
+            style={[
+              styles.prompt,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+            testID="profile-anthem"
+          >
+            <View style={styles.promptText}>
+              <AppText variant="caption" tone="muted">
+                🎵 {t('anthem.label')}
+              </AppText>
+              <AppText variant="heading" userContent>
+                {t('anthem.line', { title: profile.anthem.title, artist: profile.anthem.artist })}
+              </AppText>
+            </View>
+            {onLikeItem ? (
+              <IconButton
+                label={t('discover.likeItemLabel', { item: t('anthem.label') })}
+                glyph="♥"
+                onPress={() =>
+                  onLikeItem({
+                    itemType: 'anthem',
+                    itemId: profile.anthem!.id,
+                    label: t('anthem.label'),
+                  })
+                }
+              />
+            ) : null}
           </View>
         ) : null}
 

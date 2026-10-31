@@ -34,6 +34,7 @@ export default function Likes() {
     // Phase 76a: a rose comes first and says so.
     if (like.rose) return `🌹 ${t('rose.received')}`;
     if (like.itemType === 'photo') return t('likes.likedPhoto');
+    if (like.itemType === 'anthem') return `🎵 ${t('anthem.liked')}`;
     if (like.promptKey) return t('likes.likedPrompt', { prompt: t(`prompt.${like.promptKey}`) });
     return t('likes.likedProfile');
   };

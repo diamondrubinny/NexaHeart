@@ -1310,6 +1310,20 @@ export const en = {
     goesWithLike: 'Your pick goes to {{name}} only if you like the profile.',
     picked: 'Picked: {{answer}}',
   },
+  anthem: {
+    open: 'My song',
+    title: 'My song',
+    intro:
+      'A song that says something about you. Just the title and the artist: nothing connects to a music service, and nothing is shared outside this community.',
+    label: 'My song',
+    line: '{{title}} — {{artist}}',
+    songTitle: 'Song title',
+    artist: 'Artist',
+    remove: 'Remove my song',
+    incomplete: 'Write the title and the artist.',
+    kinder: 'This may hurt. Please choose kinder words.',
+    liked: 'Liked your song',
+  },
   groups: {
     open: 'Groups',
     title: 'Groups',

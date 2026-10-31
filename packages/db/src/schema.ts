@@ -488,7 +488,7 @@ export const profileEmbeddings = pgTable('profile_embeddings', {
 });
 
 export const interactionKind = pgEnum('interaction_kind', interactionKinds);
-export const interactionItemType = pgEnum('interaction_item_type', ['photo', 'prompt']);
+export const interactionItemType = pgEnum('interaction_item_type', ['photo', 'prompt', 'anthem']);
 
 export const interactions = pgTable(
   'interactions',
@@ -2429,3 +2429,16 @@ export const groupCrushes = pgTable(
     index('group_crushes_target_idx').on(t.targetId),
   ],
 );
+
+/** Phase 76g: my song, in my own words (no music service connected). Deleted with the account. */
+export const profileAnthems = pgTable('profile_anthems', {
+  /** What a like on the song refers to (interactions.item_id). */
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 80 }).notNull(),
+  artist: varchar('artist', { length: 80 }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -44,3 +44,4 @@ export * from './game.js';
 export * from './poll.js';
 export * from './groups.js';
 export type { ScamSignal } from './signals.js';
+export * from './anthem.js';

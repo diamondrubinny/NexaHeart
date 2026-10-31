@@ -17,6 +17,27 @@ describe('normalizeForModeration', () => {
 });
 
 describe('checkHarm', () => {
+  it('flags telling someone to harm themselves (phase 77d), in all 4 languages', () => {
+    for (const text of [
+      'just go kill yourself',
+      'kys',
+      'Go die.',
+      'לך תתאבד',
+      'לכי תמותי',
+      'روح انتحر',
+      'иди умри',
+      'убей себя',
+    ]) {
+      expect(checkHarm(text).categories, text).toContain('threat');
+    }
+    // Phase 77d: lexicon words with letters the normalizer changes (й → и) used to never match.
+    expect(checkHarm('ты тупой').categories).toContain('insult');
+    expect(detectScamSignals('займи мне денег', 20)).toContain('money');
+    // Not words that merely contain them, nor ordinary talk about the topic.
+    for (const text of ['skyscraper', 'I watched a documentary about suicide prevention']) {
+      expect(checkHarm(text).flagged, text).toBe(false);
+    }
+  });
   it('flags plain insults', () => {
     expect(checkHarm('you are such an idiot').categories).toEqual(['insult']);
   });

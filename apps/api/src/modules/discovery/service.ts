@@ -674,7 +674,21 @@ export class DiscoveryService {
       throw new HttpError(409, ErrorCode.YourTurn, 'Reply to the people waiting for you first.');
     }
 
-    if (input.itemType && input.itemId) {
+    // Phase 76g: a like on the target's song.
+    if (input.itemType === 'anthem' && input.itemId) {
+      const [song] = await this.db
+        .select({ id: schema.profileAnthems.id })
+        .from(schema.profileAnthems)
+        .where(
+          and(
+            eq(schema.profileAnthems.id, input.itemId),
+            eq(schema.profileAnthems.userId, input.targetId),
+          ),
+        );
+      if (!song) {
+        throw new HttpError(400, ErrorCode.ValidationError, 'That song is not on this profile.');
+      }
+    } else if (input.itemType && input.itemId) {
       const table = input.itemType === 'photo' ? photos : prompts;
       const conditions = [eq(table.id, input.itemId), eq(table.userId, input.targetId)];
       if (input.itemType === 'photo') {
@@ -938,7 +952,7 @@ export class DiscoveryService {
     const rows = await this.db.execute<{
       actor_id: string;
       comment: string | null;
-      item_type: 'photo' | 'prompt' | null;
+      item_type: 'photo' | 'prompt' | 'anthem' | null;
       item_id: string | null;
       prompt_key: PromptKey | null;
       rose: boolean;
@@ -1353,6 +1367,20 @@ export class DiscoveryService {
         .map((r) => r.userId)
         .filter((id) => id !== viewerId),
     );
+    // Phase 76g: songs.
+    const anthems = new Map(
+      (
+        await this.db
+          .select({
+            id: schema.profileAnthems.id,
+            userId: schema.profileAnthems.userId,
+            title: schema.profileAnthems.title,
+            artist: schema.profileAnthems.artist,
+          })
+          .from(schema.profileAnthems)
+          .where(inArray(schema.profileAnthems.userId, ids))
+      ).map(({ userId, ...song }) => [userId, song]),
+    );
     // Phase 76d: prompt polls.
     const polls = new Map(
       (
@@ -1413,6 +1441,7 @@ export class DiscoveryService {
           about: toAbout(aboutById.get(p.userId)),
           voicePrompt: toVoicePrompt(aboutById.get(p.userId), cleanVoice),
           poll: polls.get(p.userId) ?? null,
+          anthem: anthems.get(p.userId) ?? null,
           accessNeeds: shownAccessNeeds(aboutById.get(p.userId)),
           identity: identityFor(p.userId),
           // Phase 66b: matches only (not the member's own preview, which shows what strangers see).

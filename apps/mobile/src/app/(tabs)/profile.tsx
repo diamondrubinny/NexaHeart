@@ -115,6 +115,12 @@ function ProfileContent() {
           label={t('interview.open')}
           onPress={() => router.push('/interview')}
         />
+        {/* Phase 76g: my song. */}
+        <Button
+          variant="secondary"
+          label={`🎵 ${t('anthem.open')}`}
+          onPress={() => router.push('/anthem')}
+        />
         {/* Phase 76d: a prompt poll on my profile. */}
         <Button
           variant="secondary"

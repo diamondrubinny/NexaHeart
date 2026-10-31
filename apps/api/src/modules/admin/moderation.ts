@@ -198,6 +198,15 @@ export class ModerationService {
       .from(prompts)
       .where(eq(prompts.userId, report!.reportedId))
       .orderBy(asc(prompts.position));
+    // Phase 77d: the song and the poll, so moderators see every text members see.
+    const [anthemRow] = await this.db
+      .select({ title: schema.profileAnthems.title, artist: schema.profileAnthems.artist })
+      .from(schema.profileAnthems)
+      .where(eq(schema.profileAnthems.userId, report!.reportedId));
+    const [pollRow] = await this.db
+      .select({ question: schema.profilePolls.question, answers: schema.profilePolls.answers })
+      .from(schema.profilePolls)
+      .where(eq(schema.profilePolls.userId, report!.reportedId));
     const photoRows = await this.db
       .select({ id: photos.id })
       .from(photos)
@@ -262,6 +271,8 @@ export class ModerationService {
             gender: profile.gender,
             bio: profile.bio,
             prompts: promptRows,
+            anthem: anthemRow ?? null,
+            poll: pollRow ?? null,
             photoIds: photoRows.map((p) => p.id),
             verified: profile.verifiedAt !== null,
             memberSince: target!.createdAt.toISOString(),

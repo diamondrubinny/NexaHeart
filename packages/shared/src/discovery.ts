@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import { anthemSchema } from './anthem.js';
 import { POLL_ANSWERS_MAX, profilePollSchema } from './poll.js';
 import { matchModeSchema, publicTakeSchema } from './friends.js';
 import { z } from 'zod';
@@ -87,6 +88,9 @@ export const publicPhotoSchema = z.object({
   blurred: z.boolean().optional(),
 });
 
+/** What a like can be about (phase 76g added the song). */
+export const likeItemTypes = ['photo', 'prompt', 'anthem'] as const;
+
 export const publicProfileSchema = z.object({
   id: z.string(),
   displayName: z.string(),
@@ -101,6 +105,8 @@ export const publicProfileSchema = z.object({
   /** Interests, lifestyle and the opening question (phase 19); null until filled in. */
   about: aboutSchema.nullable(),
   voicePrompt: voicePromptSchema.nullable(),
+  /** Phase 76g: the member's song. Optional: partner cards never carry it. */
+  anthem: anthemSchema.nullable().optional(),
   /** Phase 76d: the member's prompt poll. Optional: partner cards never carry it. */
   poll: profilePollSchema.nullable().optional(),
   /** Accessibility needs (phase 25), only those the member chose to show; usually empty. */
@@ -177,7 +183,7 @@ export const interactionInputSchema = z
   .object({
     targetId: z.string().min(1).max(64),
     kind: interactionKindSchema,
-    itemType: z.enum(['photo', 'prompt']).optional(),
+    itemType: z.enum(likeItemTypes).optional(),
     itemId: z.uuid().optional(),
     comment: z.string().trim().min(1).max(300).optional(),
     /** Friends mode (phase 22) has its own deck; a match needs both likes in the same mode. */
@@ -226,7 +232,7 @@ export type UndoPassResult = z.infer<typeof undoPassResultSchema>;
 export const likeReceivedSchema = z.object({
   profile: publicProfileSchema,
   comment: z.string().nullable(),
-  itemType: z.enum(['photo', 'prompt']).nullable(),
+  itemType: z.enum(likeItemTypes).nullable(),
   itemId: z.uuid().nullable(),
   /** Which of my prompts was liked, when the like was on a prompt. */
   promptKey: promptKeySchema.nullable(),

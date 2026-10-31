@@ -14,3 +14,11 @@ export const scamSignals = [
   'extortion',
 ] as const;
 export type ScamSignal = (typeof scamSignals)[number];
+
+/**
+ * Phase 77d: control characters, newlines and bidi overrides (which can visually reorder a line)
+ * are never valid in short profile texts such as a song or a poll.
+ */
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNSAFE_TEXT = /[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069]/;
+export const isPlainLine = (v: string): boolean => !UNSAFE_TEXT.test(v);

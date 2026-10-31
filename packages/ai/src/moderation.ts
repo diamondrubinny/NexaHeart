@@ -80,7 +80,10 @@ function lexicon(
     for (const phrase of [...en, ...he, ...ar, ...ru])
       for (const word of phrase.split(' ')) if (word.length >= 3) HARM_WORDS.add(word);
   }
-  const part = (words: string[]) => words.map((w) => w.replace(/ /g, '\\s+')).join('|');
+  // Phase 77d: phrases go through the same normalization as the text they're matched against
+  // (diacritics dropped, so "й" is "и"): before this, words with them could never match.
+  const part = (words: string[]) =>
+    words.map((w) => normalizeForModeration(w).replace(/ /g, '\\s+')).join('|');
   // English plurals too ("idiots", "bitches"): the word must still end there.
   const alternatives = [`(?:${part(en)})(?:e?s)?`, `${HE_PREFIX}(?:${part(he)})`];
   if (ar.length) alternatives.push(`${AR_PREFIX}(?:${part(ar)})`);
@@ -225,6 +228,13 @@ const RULES: Record<HarmCategory, RegExp> = {
       'you will regret',
       "you'll regret this",
       'watch your back',
+      // Phase 77d: telling someone to harm themselves.
+      'kill yourself',
+      'kill urself',
+      'kys',
+      'go die',
+      'unalive yourself',
+      'you should die',
     ],
     [
       'אני ארצח אותך',
@@ -236,6 +246,11 @@ const RULES: Record<HarmCategory, RegExp> = {
       'אמצא אותך',
       'את תצטערי',
       'תיזהרי ממני',
+      'תתאבד',
+      'תתאבדי',
+      'לך תמות',
+      'לכי תמותי',
+      'מגיע לך למות',
     ],
     true,
     [
@@ -250,10 +265,16 @@ const RULES: Record<HarmCategory, RegExp> = {
       'ستندم',
       'رح تندم',
       'راح تندمي',
+      'انتحر',
+      'انتحري',
+      'روح موت',
     ],
     [
       'я тебя убью',
       'убью тебя',
+      'убей себя',
+      'иди умри',
+      'сдохни',
       'я знаю где ты живешь',
       'я тебя найду',
       'ты пожалеешь',
