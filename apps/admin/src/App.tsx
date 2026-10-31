@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CREDIT_AUTHOR_URL, CREDIT_URL, creditText, UPSTREAM_SOURCE_URL } from '@nexaheart/shared';
 import { api, ApiError, MFA_REQUIRED_EVENT } from './api';
 import { useAsync, useRoute } from './hooks';
@@ -132,37 +132,70 @@ function Shell({
       </a>
     </li>
   );
+  // Phase 79: the menu grouped into sections, as a side bar on wide screens; on narrow screens
+  // it opens from a Menu button.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuWasOpen = useRef(false);
+  menuWasOpen.current = menuOpen;
+  useEffect(() => {
+    // A page picked from the open menu: the menu closes, and focus moves to the page (it would
+    // otherwise fall to the top of the document with the hidden link).
+    if (!menuWasOpen.current) return;
+    setMenuOpen(false);
+    document.getElementById('main')?.focus();
+  }, [current]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButton.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+  type Key = Parameters<typeof link>[0];
+  const sections: { key: 'moderation' | 'community' | 'settings'; links: Key[] }[] = [
+    {
+      key: 'moderation',
+      links: ['reports', 'verifications', 'reviews', 'videos', 'appeals', 'audit'],
+    },
+    { key: 'community', links: ['overview', 'groups', 'events', 'venues', 'signup', 'partners'] },
+    ...(isAdmin
+      ? [
+          {
+            key: 'settings' as const,
+            links: ['branding', 'integrations', 'matchmakers', 'compliance', 'system'] as Key[],
+          },
+        ]
+      : []),
+  ];
   return (
-    <>
+    <div className={signedIn ? 'layout' : 'layout layout-public'}>
       <a className="skip-link" href="#main">
         {t.skip}
       </a>
       <header className="topbar">
-        <span className="brand">NexaHeart · {t.appName}</span>
-        {signedIn ? (
-          <nav aria-label={t.appName}>
-            <ul>
-              {link('reports')}
-              {link('overview')}
-              {link('verifications')}
-              {link('reviews')}
-              {link('appeals')}
-              {link('venues')}
-              {link('groups')}
-              {link('videos')}
-              {link('events')}
-              {link('signup')}
-              {link('partners')}
-              {link('audit')}
-              {isAdmin ? link('branding') : null}
-              {isAdmin ? link('integrations') : null}
-              {isAdmin ? link('matchmakers') : null}
-              {isAdmin ? link('compliance') : null}
-              {isAdmin ? link('system') : null}
-            </ul>
-          </nav>
-        ) : null}
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            ♥
+          </span>
+          NexaHeart · {t.appName}
+        </span>
         <div className="topbar-actions">
+          {signedIn ? (
+            <button
+              type="button"
+              ref={menuButton}
+              className="button small menu-toggle"
+              aria-expanded={menuOpen}
+              aria-controls="side-menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {t.menu}
+            </button>
+          ) : null}
           <button
             type="button"
             className="button small"
@@ -178,12 +211,32 @@ function Shell({
           ) : null}
         </div>
       </header>
+      {signedIn ? (
+        <nav
+          id="side-menu"
+          className={menuOpen ? 'side-menu open' : 'side-menu'}
+          aria-label={t.appName}
+        >
+          {sections.map((section) => (
+            <div key={section.key} className="menu-section">
+              <p className="menu-heading" id={`menu-${section.key}`}>
+                {t.menuSections[section.key]}
+              </p>
+              <ul aria-labelledby={`menu-${section.key}`}>
+                {section.links.map((key) => (
+                  <Fragment key={key}>{link(key)}</Fragment>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      ) : null}
       <main id="main" tabIndex={-1}>
         {signedIn && isAdmin ? <UpdateBanner /> : null}
         {children}
       </main>
       <PoweredBy locale={locale} />
-    </>
+    </div>
   );
 }
 

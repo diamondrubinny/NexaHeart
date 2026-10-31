@@ -3,11 +3,12 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useActiveCheckin } from '../lib/checkin-queries';
 import { useLocale } from '../lib/locale';
 import { MIN_TOUCH, radius, spacing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
+import { Icon } from './Icon';
 
 /** A way into the safety check-in; shows the deadline while one is active. */
 export function CheckinEntry() {
@@ -32,14 +33,32 @@ export function CheckinEntry() {
         },
       ]}
     >
-      <AppText variant="label" tone={active ? 'primary' : 'default'}>
-        {active ? `🛡️ ${t('checkin.banner', { time: until })}` : `🛡️ ${t('checkin.entry')}`}
-      </AppText>
-      {active ? (
-        <AppText variant="caption" tone="primary">
-          {t('checkin.manage')}
-        </AppText>
-      ) : null}
+      <View style={styles.row}>
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: active ? colors.background : colors.primarySoft },
+          ]}
+        >
+          <Icon
+            name="shield"
+            color={colors.primary}
+            size={20}
+            filled={Boolean(active)}
+            background={colors.background}
+          />
+        </View>
+        <View style={styles.text}>
+          <AppText variant="label" tone={active ? 'primary' : 'default'}>
+            {active ? t('checkin.banner', { time: until }) : t('checkin.entry')}
+          </AppText>
+          {active ? (
+            <AppText variant="caption" tone="primary">
+              {t('checkin.manage')}
+            </AppText>
+          ) : null}
+        </View>
+      </View>
     </Pressable>
   );
 }
@@ -48,9 +67,17 @@ const styles = StyleSheet.create({
   card: {
     minHeight: MIN_TOUCH,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    gap: spacing.xs,
     justifyContent: 'center',
   },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  badge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: { flex: 1, gap: spacing.xs },
 });

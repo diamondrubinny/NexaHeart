@@ -53,3 +53,31 @@ export const focusRing = (colors: Pick<Colors, 'focus'>) => ({
   outlineOffset: 2,
   outlineStyle: 'solid' as const,
 });
+
+/**
+ * Phase 79: soft elevation (two layers: a tight contact shadow and a wide ambient one), tinted with
+ * the brand's ink rather than pure black. Dark mode relies on borders and surfaces instead.
+ */
+export const elevation = {
+  card: {
+    shadowColor: '#2A1B5C',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  raised: {
+    shadowColor: '#4C1D95',
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  bar: {
+    shadowColor: '#2A1B5C',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
+  },
+} as const;

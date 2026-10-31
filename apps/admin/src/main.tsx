@@ -4,6 +4,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+// Phase 79: Rubik (variable weight), split by script and bundled: no request to Google.
+import '@fontsource-variable/rubik/wght.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(

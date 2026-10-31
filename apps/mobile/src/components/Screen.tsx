@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocale } from '../lib/locale';
 import { MIN_TOUCH, spacing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
+import { Icon } from './Icon';
 
 interface ScreenProps {
   title?: string;
@@ -54,9 +55,7 @@ export function Screen({ title, subtitle, step, back, footer, children }: Screen
                     style={styles.backButton}
                     hitSlop={8}
                   >
-                    <AppText variant="heading" tone="primary">
-                      {direction === 'rtl' ? '→' : '←'}
-                    </AppText>
+                    <Icon name="back" color={colors.primary} size={26} />
                   </Pressable>
                 ) : (
                   <View />

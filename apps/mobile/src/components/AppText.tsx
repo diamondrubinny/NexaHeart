@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import i18n from 'i18next';
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 import { useDisplay } from '../lib/display';
+import { fontFor, type FontWeight } from '../lib/fonts';
 import { useColors } from '../lib/theme';
 
 type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption';
 
 const sizes: Record<
   Variant,
-  { fontSize: number; lineHeight: number; fontWeight: '400' | '600' | '700' }
+  { fontSize: number; lineHeight: number; weight: FontWeight; letterSpacing?: number }
 > = {
-  display: { fontSize: 32, lineHeight: 40, fontWeight: '700' },
-  title: { fontSize: 26, lineHeight: 34, fontWeight: '700' },
-  heading: { fontSize: 18, lineHeight: 26, fontWeight: '600' },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  label: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
-  caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  // Phase 79: a type scale in Rubik; large headings slightly tightened.
+  display: { fontSize: 32, lineHeight: 40, weight: '700', letterSpacing: -0.4 },
+  title: { fontSize: 26, lineHeight: 34, weight: '700', letterSpacing: -0.2 },
+  heading: { fontSize: 18, lineHeight: 26, weight: '600' },
+  body: { fontSize: 16, lineHeight: 24, weight: '400' },
+  label: { fontSize: 15, lineHeight: 22, weight: '500' },
+  caption: { fontSize: 14, lineHeight: 20, weight: '400' },
 };
 
 /**
@@ -43,7 +46,10 @@ export function AppText({
 }: AppTextProps) {
   const colors = useColors();
   const { scale } = useDisplay();
-  const size = sizes[variant];
+  const { weight, letterSpacing, ...metrics } = sizes[variant];
+  // Tracking would break the joins of Arabic letters.
+  const tracking = letterSpacing && !i18n.language?.startsWith('ar') ? { letterSpacing } : {};
+  const size = { ...metrics, ...tracking, ...fontFor(weight) };
   const color = {
     default: colors.text,
     muted: colors.muted,

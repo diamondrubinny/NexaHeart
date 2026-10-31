@@ -3,23 +3,36 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { AppText } from '../../components/AppText';
+import { PixelRatio, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from '../../components/Icon';
 import { Loading } from '../../components/Loading';
 import { authClient } from '../../lib/auth-client';
 import { useDisplay } from '../../lib/display';
 import { useMe } from '../../lib/queries';
 import { routeFor } from '../../lib/routes';
-import { useColors } from '../../lib/theme';
+import { fontFor } from '../../lib/fonts';
+import { elevation, radius, useColors } from '../../lib/theme';
 import { NoSession } from '../../components/ServerUnreachable';
 
-const icons = { discover: '✦', picks: '☀', likes: '♥', matches: '💬', profile: '☺' } as const;
+const icons = {
+  discover: 'discover',
+  picks: 'picks',
+  likes: 'likes',
+  matches: 'matches',
+  profile: 'profile',
+} as const;
 /** Easy mode (phase 25): three tabs; Picks and Likes open from Discover instead. */
+/** The tab labels follow the system text size up to this factor. */
+const LABEL_MAX_SCALE = 1.5;
 const EASY_HIDDEN = new Set<keyof typeof icons>(['picks', 'likes']);
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   const colors = useColors();
   const { easy } = useDisplay();
+  const insets = useSafeAreaInsets();
+  const labelScale = Math.min(PixelRatio.getFontScale(), LABEL_MAX_SCALE);
   const session = authClient.useSession();
   const me = useMe(Boolean(session.data));
   if (session.isPending || (session.data && me.isPending)) return <Loading />;
@@ -32,12 +45,20 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
+        // Phase 79: a raised bar; the current tab has a filled icon on a soft pill and a bolder
+        // label, so it's marked by shape and weight, not color alone (WCAG 1.4.1).
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          minHeight: easy ? 72 : 60,
+          borderTopWidth: 1,
+          // The label grows with the system text size (capped at 1.5×); the bar grows with it.
+          height: (easy ? 66 : 54) + Math.ceil((easy ? 22 : 18) * labelScale) + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: 8 + insets.bottom,
+          ...elevation.bar,
         },
-        tabBarLabelStyle: { fontSize: easy ? 16 : 13, fontWeight: '600' },
+        tabBarItemStyle: { paddingVertical: 2 },
+        tabBarLabelStyle: { fontSize: easy ? 16 : 12, ...fontFor('500'), marginTop: 2 },
       }}
     >
       {(Object.keys(icons) as (keyof typeof icons)[]).map((name) => (
@@ -48,19 +69,64 @@ export default function TabsLayout() {
             ...(easy && EASY_HIDDEN.has(name) ? { href: null } : {}),
             title: t(`tabs.${name}`),
             tabBarAccessibilityLabel: t(`tabs.${name}`),
-            tabBarIcon: ({ color }) => (
-              <AppText
-                variant="heading"
-                style={{ color }}
-                importantForAccessibility="no"
-                accessibilityElementsHidden
+            tabBarIcon: ({ focused }) => (
+              <View
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 4,
+                  borderRadius: radius.pill,
+                  backgroundColor: focused ? colors.primarySoft : 'transparent',
+                }}
               >
-                {icons[name]}
-              </AppText>
+                <Icon
+                  name={icons[name]}
+                  color={focused ? colors.primary : colors.muted}
+                  filled={focused}
+                  background={colors.primarySoft}
+                  size={easy ? 28 : 24}
+                />
+              </View>
+            ),
+            tabBarLabel: ({ focused, children }) => (
+              <AppTabLabel
+                color={focused ? colors.primary : colors.muted}
+                focused={focused}
+                easy={easy}
+              >
+                {children}
+              </AppTabLabel>
             ),
           }}
         />
       ))}
     </Tabs>
+  );
+}
+
+function AppTabLabel({
+  color,
+  focused,
+  easy,
+  children,
+}: {
+  color: string;
+  focused: boolean;
+  easy: boolean;
+  children: string;
+}) {
+  return (
+    <Text
+      style={{
+        color,
+        fontSize: easy ? 16 : 12,
+        lineHeight: easy ? 22 : 18,
+        marginTop: 2,
+        ...fontFor(focused ? '700' : '500'),
+      }}
+      numberOfLines={1}
+      maxFontSizeMultiplier={LABEL_MAX_SCALE}
+    >
+      {children}
+    </Text>
   );
 }
