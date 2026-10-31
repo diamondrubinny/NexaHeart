@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { ApiRequestError } from '../lib/api';
 import { useDisplay } from '../lib/display';
-import { useInteract, yourTurnKey, useSaveForLater } from '../lib/queries';
+import { roseKey, useInteract, useRose, yourTurnKey, useSaveForLater } from '../lib/queries';
 import { radius, spacing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
 import { Banner } from './Banner';
@@ -40,6 +40,8 @@ export function DecisionPanel({
   const { t } = useTranslation();
   const colors = useColors();
   const interact = useInteract();
+  // Phase 76a: this week's rose (dating mode only).
+  const rose = useRose(mode !== 'friend');
   const { easy } = useDisplay();
   const client = useQueryClient();
   const [target, setTarget] = useState<LikeTarget>();
@@ -60,18 +62,20 @@ export function DecisionPanel({
     });
   };
 
-  const decide = async (kind: 'like' | 'pass') => {
+  const decide = async (kind: 'like' | 'pass', asRose = false) => {
     setError(undefined);
     try {
       const result = await interact.mutateAsync({
         targetId: profile.id,
         kind,
+        ...(asRose ? { rose: true as const } : {}),
         ...(mode === 'friend' ? { mode } : {}),
         ...(kind === 'like' && target ? { itemType: target.itemType, itemId: target.itemId } : {}),
         ...(kind === 'like' && comment.trim() ? { comment: comment.trim() } : {}),
       });
       setTarget(undefined);
       setComment('');
+      if (asRose) void client.invalidateQueries({ queryKey: roseKey });
       onDecided({ kind, ...result });
     } catch (e) {
       // Phase 34: liking faster than a person reads profiles.
@@ -135,6 +139,27 @@ export function DecisionPanel({
           </View>
         </View>
       )}
+      {mode !== 'friend' && !target && rose.data?.enabled ? (
+        rose.data.available ? (
+          <Button
+            variant="secondary"
+            label={`🌹 ${t('rose.send')}`}
+            hint={t('rose.sendHint', { name: profile.displayName })}
+            disabled={interact.isPending}
+            onPress={() => void decide('like', true)}
+          />
+        ) : rose.data.nextAt ? (
+          <AppText variant="caption" tone="muted" testID="rose-next">
+            {t('rose.next', {
+              when: new Date(rose.data.nextAt).toLocaleDateString(undefined, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              }),
+            })}
+          </AppText>
+        ) : null
+      ) : null}
       {allowLater && !target ? (
         <Button
           variant="ghost"

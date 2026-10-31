@@ -43,6 +43,8 @@ import {
   UNANSWERED_LIMIT,
   type MyVisibility,
   type VisibilityItem,
+  ROSE_EVERY_DAYS,
+  type RoseStatus,
 } from '@nexaheart/shared';
 import type { Realtime } from '../../lib/realtime.js';
 import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
@@ -600,6 +602,16 @@ export class DiscoveryService {
       if (count >= DAILY_INTERACTION_LIMIT) {
         throw new HttpError(429, ErrorCode.RateLimited, 'Daily limit reached. Come back tomorrow.');
       }
+      // Phase 76a: one rose every week, under the same lock.
+      if (input.rose) {
+        const rose = await this.roseStatus(actorId, tx);
+        if (!rose.enabled) {
+          throw new HttpError(409, ErrorCode.Conflict, 'Roses aren’t offered in this community.');
+        }
+        if (!rose.available) {
+          throw new HttpError(409, ErrorCode.Conflict, 'You already sent this week’s rose.');
+        }
+      }
       const inserted = await tx
         .insert(interactions)
         .values({
@@ -610,6 +622,7 @@ export class DiscoveryService {
           itemId: input.itemId ?? null,
           comment: input.comment ?? null,
           mode,
+          rose: input.rose ?? false,
         })
         .onConflictDoNothing()
         .returning({ id: interactions.id });
@@ -787,6 +800,24 @@ export class DiscoveryService {
   }
 
   /** Everyone who liked me and is still waiting for my answer. Free for every user. */
+  /** Phase 76a: whether this week's rose is still to send, and when the next one comes. */
+  async roseStatus(userId: string, db: Pick<Database, 'execute'> = this.db): Promise<RoseStatus> {
+    const { rows } = await db.execute<{ enabled: boolean; next_at: Date | null; due: boolean }>(sql`
+      SELECT x.enabled, x.next_at, (x.next_at IS NULL OR x.next_at <= now()) AS due
+      FROM (SELECT
+        COALESCE((SELECT weekly_rose FROM instance_settings WHERE id = 1), true) AS enabled,
+        (SELECT max(created_at) + make_interval(days => ${ROSE_EVERY_DAYS})
+         FROM interactions WHERE actor_id = ${userId} AND rose) AS next_at) x`);
+    const enabled = Boolean(rows[0]?.enabled);
+    const next = rows[0]?.next_at ? new Date(rows[0].next_at) : null;
+    const available = enabled && Boolean(rows[0]?.due);
+    return {
+      enabled,
+      available,
+      nextAt: enabled && next && !available ? next.toISOString() : null,
+    };
+  }
+
   async likesReceived(viewerId: string): Promise<LikeReceived[]> {
     if (!(await this.isActive(viewerId))) return [];
     const rows = await this.db.execute<{
@@ -795,9 +826,10 @@ export class DiscoveryService {
       item_type: 'photo' | 'prompt' | null;
       item_id: string | null;
       prompt_key: PromptKey | null;
+      rose: boolean;
       created_at: Date;
     }>(sql`
-      SELECT i.actor_id, i.comment, i.item_type, i.item_id, p.prompt_key, i.created_at
+      SELECT i.actor_id, i.comment, i.item_type, i.item_id, p.prompt_key, i.rose, i.created_at
       FROM interactions i
       JOIN "user" u ON u.id = i.actor_id AND u.status = 'active' AND ${notOnBreak('u')}
       LEFT JOIN prompts p ON i.item_type = 'prompt' AND p.id = i.item_id AND p.user_id = ${viewerId}
@@ -805,7 +837,8 @@ export class DiscoveryService {
         AND NOT EXISTS (SELECT 1 FROM interactions mine WHERE mine.actor_id = ${viewerId} AND mine.target_id = i.actor_id)
         AND ${notSeparated(sql`${viewerId}`, sql`i.actor_id`)}
         AND ${notContactHidden(sql`${viewerId}`, sql`i.actor_id`)}
-      ORDER BY i.created_at DESC
+      -- Phase 76a: roses first.
+      ORDER BY i.rose DESC, i.created_at DESC
       LIMIT 100`);
     const profilesById = new Map(
       (
@@ -829,6 +862,7 @@ export class DiscoveryService {
               itemType: r.item_type,
               itemId: r.item_id,
               promptKey: r.prompt_key,
+              rose: r.rose,
               createdAt: new Date(r.created_at).toISOString(),
             },
           ]

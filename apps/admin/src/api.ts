@@ -143,6 +143,7 @@ export interface AdminInstanceSettings {
   riskCountries: string[];
   partnerCards: 'full' | 'minimal';
   shareTrustSignals: boolean;
+  weeklyRose: boolean;
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
   introductionHours: number;

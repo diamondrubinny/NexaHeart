@@ -6,6 +6,9 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **A weekly rose**: everyone gets one free rose a week, a like that stands out and comes first in
+  the other person's likes. Nobody can buy more; communities can turn it off.
+
 - **A short interview to start your profile**: four questions, one at a time; answers become
   prompt answers word for word, as you choose. Where the community has a text model, it proposes
   interests and lifestyle from your answers, and you tick what to keep; the AI never writes for

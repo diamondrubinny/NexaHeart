@@ -162,6 +162,8 @@ export const interactionInputSchema = z
     comment: z.string().trim().min(1).max(300).optional(),
     /** Friends mode (phase 22) has its own deck; a match needs both likes in the same mode. */
     mode: matchModeSchema.optional(),
+    /** Phase 76a: this week's rose (a like, dating mode only). */
+    rose: z.literal(true).optional(),
   })
   .refine((v) => (v.itemType === undefined) === (v.itemId === undefined), {
     message: 'itemType and itemId go together',
@@ -170,6 +172,10 @@ export const interactionInputSchema = z
   .refine((v) => v.kind === 'like' || (v.comment === undefined && v.itemId === undefined), {
     message: 'Only likes can carry a comment or item',
     path: ['kind'],
+  })
+  .refine((v) => !v.rose || (v.kind === 'like' && (v.mode ?? 'date') === 'date'), {
+    message: 'A rose is a like, in dating mode',
+    path: ['rose'],
   });
 export type InteractionInput = z.infer<typeof interactionInputSchema>;
 
@@ -193,6 +199,8 @@ export const likeReceivedSchema = z.object({
   itemId: z.uuid().nullable(),
   /** Which of my prompts was liked, when the like was on a prompt. */
   promptKey: promptKeySchema.nullable(),
+  /** Phase 76a: sent as this week's rose. */
+  rose: z.boolean(),
   createdAt: z.string(),
 });
 export type LikeReceived = z.infer<typeof likeReceivedSchema>;
@@ -250,3 +258,17 @@ export type AskProfileState = z.infer<typeof askProfileStateSchema>;
 /** `answer` null: the profile doesn't say. */
 export const askProfileAnswerSchema = z.object({ answer: z.string().nullable() });
 export type AskProfileAnswer = z.infer<typeof askProfileAnswerSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Phase 76a: a free rose every week: a rare, highlighted like. Nobody can buy more.
+// ---------------------------------------------------------------------------------------------
+
+export const ROSE_EVERY_DAYS = 7;
+export const roseStatusSchema = z.object({
+  /** The community offers roses. */
+  enabled: z.boolean(),
+  available: z.boolean(),
+  /** When the next one comes, if this week's was sent. */
+  nextAt: z.string().nullable(),
+});
+export type RoseStatus = z.infer<typeof roseStatusSchema>;

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import {
+  roseStatusSchema,
   blockInputSchema,
   discoverQuerySchema,
   interactionInputSchema,
@@ -105,6 +106,11 @@ export const discoveryRoutes: FastifyPluginAsyncZod<{
       },
     },
     async (request) => discovery.profile(currentUser(request).id, request.params.id),
+  );
+
+  // Phase 76a: this week's rose.
+  app.get('/v1/me/rose', { schema: { response: { 200: roseStatusSchema } } }, async (request) =>
+    discovery.roseStatus(currentUser(request).id),
   );
 
   // Phase 70: "My visibility" (no shadow bans).

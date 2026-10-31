@@ -497,6 +497,7 @@ function CommunityProfile({
   const [offered, setOffered] = useState<Intention[]>(settings.intentionsOffered);
   const [faith, setFaith] = useState(settings.faithModule);
   const [afterMatch, setAfterMatch] = useState(settings.photosAfterMatch);
+  const [rose, setRose] = useState(settings.weeklyRose);
   const [resources, setResources] = useState(settings.safetyResources ?? '');
   const [discreetName, setDiscreetName] = useState(settings.discreetName ?? '');
   const [risk, setRisk] = useState(settings.riskCountries.join(', '));
@@ -515,6 +516,7 @@ function CommunityProfile({
         intentionsOffered: offered,
         faithModule: faith,
         photosAfterMatch: afterMatch,
+        weeklyRose: rose,
         safetyResources: resources.trim() || null,
         discreetName: discreetName.trim() || null,
         // "IL, ae" → ["IL", "AE"]; the server refuses anything that isn't a 2-letter code.
@@ -589,6 +591,20 @@ function CommunityProfile({
       </div>
       <p id="photos-after-match-help" className="help">
         {t.branding.photosAfterMatchHelp}
+      </p>
+      {/* Phase 76a: one free rose a week. */}
+      <div className="checkbox">
+        <input
+          id="weekly-rose"
+          type="checkbox"
+          checked={rose}
+          aria-describedby="weekly-rose-help"
+          onChange={(e) => setRose(e.target.checked)}
+        />
+        <label htmlFor="weekly-rose">{t.branding.weeklyRose}</label>
+      </div>
+      <p id="weekly-rose-help" className="help">
+        {t.branding.weeklyRoseHelp}
       </p>
       {/* Phase 67a: local help members find under Settings → "Help near you". */}
       <label htmlFor="safety-resources">{t.branding.safetyResources}</label>

@@ -1224,6 +1224,12 @@ export const ar: Translations = {
       unanswered: 'فتح محادثاتي',
     },
   },
+  rose: {
+    send: 'أرسل وردة',
+    sendHint: 'وردتك الوحيدة هذا الأسبوع، إلى {{name}}. إعجاب يلفت النظر.',
+    next: 'وردتك التالية تصل يوم {{when}}.',
+    received: 'أرسل لك وردة',
+  },
   interview: {
     open: 'ابدأ بمقابلة قصيرة',
     title: 'مقابلة قصيرة',

@@ -65,6 +65,7 @@ export interface AdminInstanceSettings {
   riskCountries: string[];
   partnerCards: PartnerCardMode;
   shareTrustSignals: boolean;
+  weeklyRose: boolean;
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
   introductionHours: number;
@@ -233,6 +234,7 @@ export class InstanceService {
       riskCountries: info.community.riskCountries,
       partnerCards: row?.partnerCards === 'minimal' ? 'minimal' : 'full',
       shareTrustSignals: row?.shareTrustSignals ?? false,
+      weeklyRose: row?.weeklyRose ?? true,
       communityCountry: row?.communityCountry ?? null,
       introductionOrder: row?.introductionOrder === 'women_first' ? 'women_first' : 'together',
       introductionHours: row?.introductionHours ?? 336,

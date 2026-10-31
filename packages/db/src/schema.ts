@@ -506,6 +506,8 @@ export const interactions = pgTable(
     comment: varchar('comment', { length: 300 }),
     /** Dating or friends mode (phase 22); still one decision per pair of people in total. */
     mode: varchar('mode', { length: 6 }).notNull().default('date'),
+    /** Phase 76a: sent as the week's rose. */
+    rose: boolean('rose').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -1027,6 +1029,8 @@ export const instanceSettings = pgTable(
     partnerCards: varchar('partner_cards', { length: 10 }).notNull().default('full'),
     /** Phase 75a: hours members have to answer an introduction. */
     introductionHours: smallint('introduction_hours').notNull().default(336),
+    /** Phase 76a: a free rose every week (on). */
+    weeklyRose: boolean('weekly_rose').notNull().default(true),
     /** Phase 73b: share banned photos' hashes with partners, and accept theirs (off). */
     shareTrustSignals: boolean('share_trust_signals').notNull().default(false),
     communityCountry: varchar('community_country', { length: 2 }),

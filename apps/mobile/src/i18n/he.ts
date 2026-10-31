@@ -1216,6 +1216,12 @@ export const he: Translations = {
       unanswered: 'פתיחת השיחות שלי',
     },
   },
+  rose: {
+    send: 'לשלוח ורד',
+    sendHint: 'הוורד היחיד שלך השבוע, אל {{name}}. לייק שבולט במיוחד.',
+    next: 'הוורד הבא שלך: {{when}}.',
+    received: 'ורד בשבילך',
+  },
   interview: {
     open: 'להתחיל בראיון קצר',
     title: 'ראיון קצר',
