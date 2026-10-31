@@ -6,6 +6,11 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **A short interview to start your profile**: four questions, one at a time; answers become
+  prompt answers word for word, as you choose. Where the community has a text model, it proposes
+  interests and lifestyle from your answers, and you tick what to keep; the AI never writes for
+  you.
+
 - **Ask about a profile**: where the community has a text model, a question box on a profile
   answers from what the person wrote (never the sensitive parts), or says the profile doesn't say.
   An external model needs both people's consent; nothing is stored.

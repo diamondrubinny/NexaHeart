@@ -109,6 +109,12 @@ function ProfileContent() {
       </View>
       <MoreOptions>
         <Button label={`✨ ${t('coach.open')}`} onPress={() => router.push('/coach')} />
+        {/* Phase 75c: a short interview; the person writes, a model may only propose fields. */}
+        <Button
+          variant="secondary"
+          label={t('interview.open')}
+          onPress={() => router.push('/interview')}
+        />
         <Button
           variant="secondary"
           label={`💬 ${t('matchmaker.open')}`}

@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 /**
- * A stand-in for a local Ollama model (phase 75b e2e): answers questions about hiking from a
- * script, "NOT_IN_PROFILE" otherwise. Nothing leaves the machine.
+ * A stand-in for a local Ollama model (phases 75b and 75c e2e): answers questions about hiking
+ * from a script ("NOT_IN_PROFILE" otherwise), and proposes fields from interview answers. Nothing leaves the machine.
  * Usage: node fake-model.mjs [port]  (then ICEBREAKERS_PROVIDER=ollama OLLAMA_URL=http://localhost:PORT)
  */
 import { createServer } from 'node:http';
@@ -20,6 +20,15 @@ createServer((req, res) => {
       const user = messages[1]?.content ?? '';
       const question = user.split('\nQuestion:')[1] ?? '';
       const hebrew = system.includes('Hebrew');
+      // Phase 75c: fields from interview answers.
+      if (system.includes('pick profile fields')) {
+        content = JSON.stringify(
+          /hik|טיול/i.test(user) ? { interests: ['hiking', 'cooking'], smoking: 'no' } : {},
+        );
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: { role: 'assistant', content } }));
+        return;
+      }
       if (/hik|טיול/i.test(question) && /hik/i.test(user.split('\nQuestion:')[0] ?? '')) {
         content = hebrew
           ? 'כן, הם אוהבים טיולים בסופי שבוע.'

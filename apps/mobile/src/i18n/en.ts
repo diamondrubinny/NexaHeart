@@ -1247,6 +1247,23 @@ export const en = {
       unanswered: 'Open my chats',
     },
   },
+  interview: {
+    open: 'Start with a short interview',
+    title: 'A short interview',
+    intro: 'Answer in your own words, or skip. You choose what goes on your profile.',
+    progress: 'Question {{n}} of {{total}}',
+    hint: 'Up to 300 characters. You can also dictate with your keyboard.',
+    next: 'Next',
+    skip: 'Skip',
+    nothing: 'You skipped every question. You can start again whenever you like.',
+    promptsTitle: 'Add to your profile, as you wrote it',
+    promptsHint:
+      "Up to {{max}} answers on your profile; these replace the same question if it's already there.",
+    suggestionsTitle: 'Suggested from your answers',
+    suggestionsHint: "Tick what's true for you. Nothing is added unless you tick it.",
+    save: 'Save to my profile',
+    again: 'Start again',
+  },
   ask: {
     title: "Ask about {{name}}'s profile",
     hint: "Answers come only from what they wrote on their profile, and aren't saved. For anything else, ask them.",
