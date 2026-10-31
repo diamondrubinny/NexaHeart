@@ -6,8 +6,14 @@ import { schema, type Database } from '@nexaheart/db';
 import {
   ErrorCode,
   GROUP_POSTS_PAGE,
+  GROUPS_HOSTED_MAX,
   GROUPS_MAX,
   groupInputSchema,
+  groupProposalSchema,
+  SECRET_CRUSH_DAYS,
+  SECRET_CRUSHES_MAX,
+  type CrushResult,
+  type GroupProposal,
   type AdminGroupPost,
   type Group,
   type GroupDetail,
@@ -23,10 +29,14 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { audit } from '../../lib/audit.js';
 import { blurredOwners } from '../../lib/photo-blur.js';
 import { HttpError } from '../../plugins/error-handler.js';
+import { crushPairLock, type DiscoveryService } from '../discovery/service.js';
 import { notContactHidden, notOnBreak, notSeparated } from '../discovery/visibility.js';
 import { photoUrl } from '../me/service.js';
 
-const { interestGroups, groupMembers, groupPosts } = schema;
+const { interestGroups, groupMembers, groupPosts, groupCrushes } = schema;
+
+/** A crush still counts for this long (phase 76f). */
+const crushFresh = sql.raw(`now() - interval '${SECRET_CRUSH_DAYS} days'`);
 
 /** Scam warnings stored with a post, as in chat (phase 77b). */
 function scamOf(flags: string[]): ScamSignal[] {
@@ -36,6 +46,7 @@ function scamOf(flags: string[]): ScamSignal[] {
 const notFound = () => new HttpError(404, ErrorCode.NotFound, 'Resource not found.');
 
 type GroupRow = typeof interestGroups.$inferSelect;
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
  * Who of these people this viewer may see in a group (as a member or as the author of a post), and
@@ -61,7 +72,23 @@ export class GroupService {
   constructor(
     private readonly db: Database,
     private readonly now: () => number = Date.now,
+    /** Phase 76f: a mutual secret crush opens a match. */
+    private readonly discovery?: Pick<DiscoveryService, 'matchFromMutualCrush'>,
   ) {}
+
+  /**
+   * Hosts' names. Phase 77c: a host is a member, so their name follows the same rule as the member
+   * list: only for someone they can see both ways (null `viewerId` is staff, who see all).
+   */
+  private async hosts(rows: GroupRow[], viewerId: string | null): Promise<Map<string, string>> {
+    const ids = [...new Set(rows.flatMap((r) => (r.hostId ? [r.hostId] : [])))];
+    if (ids.length === 0) return new Map();
+    const { rows: names } = await this.db.execute<{ user_id: string; display_name: string }>(sql`
+      SELECT p.user_id, p.display_name FROM profiles p
+      WHERE p.user_id = ANY(${sql.param(ids)}::text[])
+        ${viewerId === null ? sql`` : sql`AND (p.user_id = ${viewerId} OR ${visibleWith(viewerId, sql`p.user_id`)})`}`);
+    return new Map(names.map((n) => [n.user_id, n.display_name]));
+  }
 
   private async counts(): Promise<Map<string, number>> {
     const { rows } = await this.db.execute<{ group_id: string; n: number }>(sql`
@@ -69,8 +96,23 @@ export class GroupService {
     return new Map(rows.map((r) => [r.group_id, r.n]));
   }
 
-  private view(row: GroupRow, members: number, joined: boolean): Group {
+  private view(
+    row: GroupRow,
+    members: number,
+    joined: boolean,
+    viewerId: string | null,
+    hostNames: Map<string, string>,
+  ): Group {
+    // Phase 77c: who hosts a group is shown only inside it (staff and the host themselves aside),
+    // like any membership.
+    const hostName =
+      row.hostId && (viewerId === null || joined || row.hostId === viewerId)
+        ? hostNames.get(row.hostId)
+        : undefined;
     return {
+      status: row.status === 'pending' ? 'pending' : 'open',
+      host: row.hostId && hostName ? { userId: row.hostId, displayName: hostName } : null,
+      hosting: viewerId !== null && row.hostId === viewerId,
       id: row.id,
       name: row.name,
       about: row.about,
@@ -102,9 +144,14 @@ export class GroupService {
           .where(eq(groupMembers.userId, viewerId))
       ).map((r) => r.groupId),
     );
-    return rows
-      .filter((r) => r.archivedAt === null || mine.has(r.id))
-      .map((r) => this.view(r, counts.get(r.id) ?? 0, mine.has(r.id)));
+    const shown = rows.filter(
+      (r) =>
+        // A proposal is visible only to its author until the admins approve it.
+        (r.status !== 'pending' || r.createdBy === viewerId) &&
+        (r.archivedAt === null || mine.has(r.id)),
+    );
+    const hosts = await this.hosts(shown, viewerId);
+    return shown.map((r) => this.view(r, counts.get(r.id) ?? 0, mine.has(r.id), viewerId, hosts));
   }
 
   private async group(
@@ -113,6 +160,7 @@ export class GroupService {
   ): Promise<{ row: GroupRow; joined: boolean }> {
     const [row] = await this.db.select().from(interestGroups).where(eq(interestGroups.id, groupId));
     if (!row) throw notFound();
+    if (row.status === 'pending' && row.createdBy !== viewerId) throw notFound();
     const joined = await this.isMember(groupId, viewerId);
     if (row.archivedAt && !joined) throw notFound();
     return { row, joined };
@@ -163,12 +211,27 @@ export class GroupService {
         return p ? [p] : [];
       });
     }
-    return { group: this.view(row, counts.get(groupId) ?? 0, joined), members };
+    const crushes = joined ? await this.myCrushes(viewerId) : [];
+    return {
+      group: this.view(
+        row,
+        counts.get(groupId) ?? 0,
+        joined,
+        viewerId,
+        await this.hosts([row], viewerId),
+      ),
+      members,
+      myCrushes: crushes
+        .filter((c) => c.groupId === groupId && !c.withdrawn)
+        .map((c) => c.targetId),
+      // Phase 77c: a taken-back crush still counts until it expires.
+      crushesLeft: Math.max(0, SECRET_CRUSHES_MAX - crushes.length),
+    };
   }
 
   async join(groupId: string, userId: string): Promise<GroupDetail> {
     const { row, joined } = await this.group(groupId, userId);
-    if (row.archivedAt) {
+    if (row.archivedAt || row.status === 'pending') {
       throw new HttpError(409, ErrorCode.Conflict, 'This group is closed.');
     }
     if (!joined) {
@@ -185,13 +248,27 @@ export class GroupService {
   }
 
   async leave(groupId: string, userId: string): Promise<void> {
-    const left = await this.db
+    await this.db.transaction(async (tx) => {
+      // Phase 77c: the same locks as a crush on me or by me, so none can slip in after I left.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crush-user:${userId}`}))`);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crush-target:${userId}`}))`);
+      await this.leaveIn(tx, groupId, userId);
+    });
+  }
+
+  private async leaveIn(tx: Tx, groupId: string, userId: string): Promise<void> {
+    const left = await tx
       .delete(groupMembers)
       .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
       .returning({ userId: groupMembers.userId });
+    // Phase 77c: a host who leaves stops hosting (the admins still run the group).
+    await tx
+      .update(interestGroups)
+      .set({ hostId: null })
+      .where(and(eq(interestGroups.id, groupId), eq(interestGroups.hostId, userId)));
     // Phase 77b: remembered 30 days, so what I saw there can still be reported.
     if (left.length > 0) {
-      await this.db
+      await tx
         .insert(schema.groupDepartures)
         .values({ groupId, userId, leftAt: new Date(this.now()) })
         .onConflictDoUpdate({
@@ -199,6 +276,9 @@ export class GroupService {
           set: { leftAt: new Date(this.now()) },
         });
     }
+    // Phase 76f: secret crushes made in this group, mine and on me, end when I leave it.
+    await tx.execute(sql`DELETE FROM group_crushes
+      WHERE group_id = ${groupId} AND (user_id = ${userId} OR target_id = ${userId})`);
   }
 
   async posts(groupId: string, viewerId: string, before?: string): Promise<GroupPosts> {
@@ -250,7 +330,9 @@ export class GroupService {
   async post(groupId: string, authorId: string, body: string): Promise<GroupPost> {
     const { row, joined } = await this.group(groupId, authorId);
     if (!joined) throw notFound();
-    if (row.archivedAt) throw new HttpError(409, ErrorCode.Conflict, 'This group is closed.');
+    if (row.archivedAt || row.status === 'pending') {
+      throw new HttpError(409, ErrorCode.Conflict, 'This group is closed.');
+    }
     if (checkHarm(body).flagged) {
       throw new HttpError(
         422,
@@ -296,25 +378,31 @@ export class GroupService {
   async listAll(): Promise<Group[]> {
     const rows = await this.db.select().from(interestGroups).orderBy(interestGroups.name);
     const counts = await this.counts();
-    return rows.map((r) => this.view(r, counts.get(r.id) ?? 0, false));
+    const hosts = await this.hosts(rows, null);
+    return rows.map((r) => this.view(r, counts.get(r.id) ?? 0, false, null, hosts));
   }
 
   async create(actorId: string, input: GroupInput): Promise<Group> {
     const values = groupInputSchema.parse(input);
-    if ((await this.db.$count(interestGroups)) >= GROUPS_MAX) {
-      throw new HttpError(409, ErrorCode.Conflict, `At most ${GROUPS_MAX} groups.`);
-    }
-    const [row] = await this.db
-      .insert(interestGroups)
-      .values({ ...values, createdBy: actorId })
-      .returning();
+    const row = await this.db.transaction(async (tx) => {
+      // Phase 77c: one lock for everyone who adds a group, so the cap holds under concurrency.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('groups-count'))`);
+      if ((await tx.$count(interestGroups)) >= GROUPS_MAX) {
+        throw new HttpError(409, ErrorCode.Conflict, `At most ${GROUPS_MAX} groups.`);
+      }
+      const [inserted] = await tx
+        .insert(interestGroups)
+        .values({ ...values, createdBy: actorId })
+        .returning();
+      return inserted!;
+    });
     await audit(this.db, {
       actorId,
       action: 'group.create',
       targetType: 'group',
-      targetId: row!.id,
+      targetId: row.id,
     });
-    return this.view(row!, 0, false);
+    return this.view(row, 0, false, null, new Map());
   }
 
   async update(actorId: string, id: string, patch: GroupUpdate): Promise<Group> {
@@ -335,7 +423,13 @@ export class GroupService {
       targetId: id,
       meta: { fields: Object.keys(patch).sort().join(',') },
     });
-    return this.view(row, (await this.counts()).get(id) ?? 0, false);
+    return this.view(
+      row,
+      (await this.counts()).get(id) ?? 0,
+      false,
+      null,
+      await this.hosts([row], null),
+    );
   }
 
   async adminPosts(groupId: string): Promise<AdminGroupPost[]> {
@@ -355,19 +449,223 @@ export class GroupService {
     return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   }
 
-  /** Removed, not deleted: kept 30 days for moderation (and as report evidence), never shown. */
-  async removePost(actorId: string, postId: string): Promise<void> {
+  /**
+   * Removed, not deleted: kept 30 days for moderation (and as report evidence), never shown.
+   * `asHost` (phase 76f): a member removes a post only in a group they host.
+   */
+  async removePost(actorId: string, postId: string, asHost = false): Promise<void> {
     const updated = await this.db
       .update(groupPosts)
       .set({ removedAt: new Date(this.now()) })
-      .where(and(eq(groupPosts.id, postId), isNull(groupPosts.removedAt)))
+      .where(
+        and(
+          eq(groupPosts.id, postId),
+          isNull(groupPosts.removedAt),
+          asHost
+            ? sql`EXISTS (SELECT 1 FROM interest_groups g WHERE g.id = ${groupPosts.groupId}
+                AND g.host_id = ${actorId} AND g.status = 'open' AND g.archived_at IS NULL
+                AND EXISTS (SELECT 1 FROM group_members gm
+                            WHERE gm.group_id = g.id AND gm.user_id = ${actorId}))`
+            : sql`true`,
+        ),
+      )
       .returning({ id: groupPosts.id, authorId: groupPosts.authorId });
     if (updated.length === 0) throw notFound();
     await audit(this.db, {
       actorId,
-      action: 'group.post.remove',
+      action: asHost ? 'group.post.remove.host' : 'group.post.remove',
       targetType: 'user',
       targetId: updated[0]!.authorId,
     });
+  }
+
+  // --- Phase 76f: groups members propose ---
+
+  /** Read fresh: the community turning it off takes effect at once. */
+  private async memberGroupsOn(): Promise<boolean> {
+    const [row] = await this.db
+      .select({ on: schema.instanceSettings.memberGroups })
+      .from(schema.instanceSettings)
+      .limit(1);
+    return row?.on ?? false;
+  }
+
+  async propose(userId: string, input: GroupProposal): Promise<Group> {
+    if (!(await this.memberGroupsOn())) {
+      throw new HttpError(403, ErrorCode.Forbidden, 'Members can’t propose groups here.');
+    }
+    const values = groupProposalSchema.parse(input);
+    if ([values.name, values.about].some((text) => text && checkHarm(text).flagged)) {
+      throw new HttpError(
+        422,
+        ErrorCode.ValidationError,
+        'This may hurt. Please choose kinder words.',
+      );
+    }
+    const row = await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`group-host:${userId}`}))`);
+      // Phase 77c: the community-wide cap too, under one lock for everyone who adds a group.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('groups-count'))`);
+      const { rows } = await tx.execute<{ pending: number; hosted: number }>(sql`
+        SELECT count(*) FILTER (WHERE status = 'pending')::int AS pending,
+               count(*) FILTER (WHERE status = 'open' AND archived_at IS NULL)::int AS hosted
+        FROM interest_groups WHERE host_id = ${userId}`);
+      if ((rows[0]?.pending ?? 0) > 0) {
+        throw new HttpError(409, ErrorCode.Conflict, 'You already have a proposal waiting.');
+      }
+      if ((rows[0]?.hosted ?? 0) >= GROUPS_HOSTED_MAX) {
+        throw new HttpError(409, ErrorCode.Conflict, `At most ${GROUPS_HOSTED_MAX} groups each.`);
+      }
+      if ((await tx.$count(interestGroups)) >= GROUPS_MAX) {
+        throw new HttpError(409, ErrorCode.Conflict, `At most ${GROUPS_MAX} groups.`);
+      }
+      const [inserted] = await tx
+        .insert(interestGroups)
+        .values({ ...values, status: 'pending', createdBy: userId, hostId: userId })
+        .returning();
+      return inserted!;
+    });
+    await audit(this.db, {
+      actorId: userId,
+      action: 'group.propose',
+      targetType: 'group',
+      targetId: row.id,
+    });
+    return this.view(row, 0, false, userId, await this.hosts([row], userId));
+  }
+
+  /** Approving opens the group, with its host as the first member; declining deletes it. */
+  async decide(actorId: string, id: string, approve: boolean): Promise<void> {
+    // Phase 77c: only a proposal still waiting is decided, in one statement (two admins or a
+    // double click can't approve and decline the same group, or decline one already open).
+    const done = await this.db.transaction(async (tx) => {
+      if (!approve) {
+        const deleted = await tx
+          .delete(interestGroups)
+          .where(and(eq(interestGroups.id, id), eq(interestGroups.status, 'pending')))
+          .returning({ id: interestGroups.id });
+        return deleted.length > 0;
+      }
+      const [opened] = await tx
+        .update(interestGroups)
+        .set({ status: 'open' })
+        .where(and(eq(interestGroups.id, id), eq(interestGroups.status, 'pending')))
+        .returning({ hostId: interestGroups.hostId });
+      if (!opened) return false;
+      if (opened.hostId) {
+        await tx
+          .insert(groupMembers)
+          .values({ groupId: id, userId: opened.hostId })
+          .onConflictDoNothing();
+      }
+      return true;
+    });
+    if (!done) throw notFound();
+    await audit(this.db, {
+      actorId,
+      action: approve ? 'group.approve' : 'group.decline',
+      targetType: 'group',
+      targetId: id,
+    });
+  }
+
+  // --- Phase 76f: Secret Crush ---
+
+  /** My fresh crushes, including ones I took back (they count until they expire). */
+  private async myCrushes(
+    userId: string,
+  ): Promise<{ targetId: string; groupId: string; withdrawn: boolean }[]> {
+    const { rows } = await this.db.execute<{
+      target_id: string;
+      group_id: string;
+      withdrawn: boolean;
+    }>(sql`
+      SELECT target_id, group_id, withdrawn_at IS NOT NULL AS withdrawn FROM group_crushes
+      WHERE user_id = ${userId} AND created_at > ${crushFresh}`);
+    return rows.map((r) => ({
+      targetId: r.target_id,
+      groupId: r.group_id,
+      withdrawn: r.withdrawn,
+    }));
+  }
+
+  /**
+   * Mark (or take back) a secret crush on a member of this group. Nobody is ever told about a
+   * one-sided crush; a mutual one opens a match for both and both crushes are cleared.
+   *
+   * Phase 77c: every check runs inside one transaction, under the locks a leave or a block takes
+   * (so neither can slip between the check and the write); a crush taken back still counts toward
+   * the cap until it expires (no mass liking by giving and taking back); archived groups are
+   * read-only; the match itself is opened by matchFromMutualCrush, which re-checks everything under
+   * the per-pair lock a block takes.
+   */
+  async crush(
+    groupId: string,
+    userId: string,
+    targetId: string,
+    on: boolean,
+  ): Promise<CrushResult> {
+    const { row, joined } = await this.group(groupId, userId);
+    if (!joined || row.status !== 'open' || row.archivedAt) throw notFound();
+    if (targetId === userId) throw notFound();
+    const mutual = await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crush-user:${userId}`}))`);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`crush-target:${targetId}`}))`);
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${crushPairLock(userId, targetId)}))`,
+      );
+      if (!on) {
+        await tx
+          .update(groupCrushes)
+          .set({ withdrawnAt: new Date(this.now()) })
+          .where(and(eq(groupCrushes.userId, userId), eq(groupCrushes.targetId, targetId)));
+        return false;
+      }
+      // Both still members here; the target someone I can see, who can see me.
+      const { rows: ok } = await tx.execute<{ ok: boolean }>(sql`
+        SELECT EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = ${groupId}
+          AND gm.user_id = ${targetId} AND ${visibleWith(userId, sql`gm.user_id`)}
+          AND ${visibleWith(targetId, sql`${userId}`)})
+          AND EXISTS (SELECT 1 FROM group_members me WHERE me.group_id = ${groupId}
+          AND me.user_id = ${userId}) AS ok`);
+      if (!ok[0]?.ok) throw notFound();
+      const { rows: matched } = await tx.execute<{ id: string }>(sql`
+        SELECT id FROM matches WHERE unmatched_at IS NULL
+          AND ((user_a = ${userId} AND user_b = ${targetId}) OR (user_a = ${targetId} AND user_b = ${userId}))`);
+      if (matched.length > 0) {
+        throw new HttpError(409, ErrorCode.Conflict, 'You already matched.');
+      }
+      const { rows } = await tx.execute<{ n: number }>(sql`
+        SELECT count(*)::int AS n FROM group_crushes
+        WHERE user_id = ${userId} AND created_at > ${crushFresh} AND target_id <> ${targetId}`);
+      if ((rows[0]?.n ?? 0) >= SECRET_CRUSHES_MAX) {
+        throw new HttpError(
+          409,
+          ErrorCode.Conflict,
+          `At most ${SECRET_CRUSHES_MAX} secret crushes.`,
+        );
+      }
+      await tx
+        .insert(groupCrushes)
+        .values({ userId, targetId, groupId })
+        .onConflictDoUpdate({
+          target: [groupCrushes.userId, groupCrushes.targetId],
+          set: { groupId, withdrawnAt: null },
+        });
+      const { rows: back } = await tx.execute<{ ok: number }>(sql`
+        SELECT 1 AS ok FROM group_crushes
+        WHERE user_id = ${targetId} AND target_id = ${userId} AND created_at > ${crushFresh}
+          AND withdrawn_at IS NULL`);
+      if (back.length === 0) return false;
+      await tx.execute(sql`DELETE FROM group_crushes
+        WHERE (user_id = ${userId} AND target_id = ${targetId})
+           OR (user_id = ${targetId} AND target_id = ${userId})`);
+      return true;
+    });
+    const matchId =
+      mutual && this.discovery
+        ? await this.discovery.matchFromMutualCrush(userId, targetId, groupId)
+        : null;
+    return { detail: await this.detail(groupId, userId), matchId };
   }
 }

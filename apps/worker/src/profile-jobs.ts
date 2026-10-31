@@ -118,6 +118,10 @@ export async function purgeUnsent(
   await db.execute(
     sql`DELETE FROM group_departures WHERE left_at < now() - interval '${days} days'`,
   );
+  // Phase 76f: one-sided secret crushes expire after 30 days (the same as UNSENT_KEEP_DAYS).
+  await db.execute(
+    sql`DELETE FROM group_crushes WHERE created_at < now() - interval '${days} days'`,
+  );
   return { unsentPurged: purged.rowCount ?? 0, groupPostsPurged: posts.rowCount ?? 0 };
 }
 

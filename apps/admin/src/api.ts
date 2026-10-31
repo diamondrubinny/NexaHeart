@@ -152,6 +152,7 @@ export interface AdminInstanceSettings {
   shareTrustSignals: boolean;
   weeklyRose: boolean;
   chatGame: boolean;
+  memberGroups: boolean;
   discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
@@ -201,6 +202,8 @@ export const api = {
     request<Group>('PATCH', `/v1/admin/groups/${encodeURIComponent(id)}`, patch),
   groupPosts: (id: string) =>
     request<{ posts: AdminGroupPost[] }>('GET', `/v1/admin/groups/${encodeURIComponent(id)}/posts`),
+  decideGroup: (id: string, approve: boolean) =>
+    request<void>('POST', `/v1/admin/groups/${encodeURIComponent(id)}/decision`, { approve }),
   removeGroupPost: (id: string) =>
     request<void>('POST', `/v1/admin/group-posts/${encodeURIComponent(id)}/remove`),
   invites: () => request<{ invites: Invite[] }>('GET', '/v1/admin/invites'),

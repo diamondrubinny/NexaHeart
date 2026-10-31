@@ -71,6 +71,17 @@ export function Groups({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
+  async function decide(g: Group, approve: boolean) {
+    setError(undefined);
+    try {
+      await api.decideGroup(g.id, approve);
+      announce(format(approve ? t.groups.approved : t.groups.declined, { name: g.name }));
+      list.reload();
+    } catch (err) {
+      setError(err as Error);
+    }
+  }
+
   async function showPosts(g: Group) {
     setError(undefined);
     try {
@@ -133,14 +144,23 @@ export function Groups({ isAdmin }: { isAdmin: boolean }) {
                         {g.about ? (
                           <span className="muted block cell-detail">{g.about}</span>
                         ) : null}
+                        {g.host ? (
+                          <span className="muted block cell-detail">
+                            {format(t.groups.hostedBy, { name: g.host.displayName })}
+                          </span>
+                        ) : null}
                       </th>
                       <td>
                         {g.members} / {g.capacity}
                       </td>
                       <td>
-                        <Badge tone={g.archived ? 'muted' : 'ok'}>
-                          {g.archived ? t.groups.closed : t.groups.openStatus}
-                        </Badge>
+                        {g.status === 'pending' ? (
+                          <Badge tone="normal">{t.groups.pending}</Badge>
+                        ) : (
+                          <Badge tone={g.archived ? 'muted' : 'ok'}>
+                            {g.archived ? t.groups.closed : t.groups.openStatus}
+                          </Badge>
+                        )}
                       </td>
                       <td className="actions">
                         <button
@@ -151,7 +171,27 @@ export function Groups({ isAdmin }: { isAdmin: boolean }) {
                           {t.groups.posts}
                           <span className="visually-hidden"> {g.name}</span>
                         </button>
-                        {isAdmin ? (
+                        {isAdmin && g.status === 'pending' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="button small primary"
+                              onClick={() => void decide(g, true)}
+                            >
+                              {t.groups.approve}
+                              <span className="visually-hidden"> {g.name}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="button small"
+                              onClick={() => void decide(g, false)}
+                            >
+                              {t.groups.decline}
+                              <span className="visually-hidden"> {g.name}</span>
+                            </button>
+                          </>
+                        ) : null}
+                        {isAdmin && g.status !== 'pending' ? (
                           <button
                             type="button"
                             className="button small"

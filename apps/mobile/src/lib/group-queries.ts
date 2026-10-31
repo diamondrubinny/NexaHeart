@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
-import type { Group, GroupDetail, GroupPost, GroupPosts } from '@nexaheart/shared';
+import type {
+  CrushResult,
+  Group,
+  GroupDetail,
+  GroupPost,
+  GroupPosts,
+  GroupProposal,
+} from '@nexaheart/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, json } from './api';
 
@@ -56,4 +63,28 @@ export const usePostToGroup = (id: string) =>
 export const useDeleteGroupPost = (id: string) =>
   useGroupMutation(id, (postId: string) =>
     apiFetch<void>(`/v1/group-posts/${postId}`, { method: 'DELETE' }),
+  );
+
+/** Phase 76f: propose a group (the admins approve it). */
+export function useProposeGroup() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GroupProposal) =>
+      apiFetch<Group>('/v1/groups/proposals', { method: 'POST', body: json(input) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: groupKeys.list }),
+  });
+}
+
+/** Phase 76f: the host removes a post in their group. */
+export const useHostRemovePost = (id: string) =>
+  useGroupMutation(id, (postId: string) =>
+    apiFetch<void>(`/v1/group-posts/${postId}/remove`, { method: 'POST' }),
+  );
+
+/** Phase 76f: a secret crush (or take it back). A match only when it's mutual. */
+export const useCrush = (id: string) =>
+  useGroupMutation(id, ({ userId, on }: { userId: string; on: boolean }) =>
+    apiFetch<CrushResult>(`/v1/groups/${id}/crush/${encodeURIComponent(userId)}`, {
+      method: on ? 'PUT' : 'DELETE',
+    }),
   );

@@ -459,7 +459,7 @@ export function createServices(
     venues,
     dates: new DateService(dbHandle.db, chat, venues, overrides.now),
     games: new GameService(dbHandle.db, chat),
-    groups: new GroupService(dbHandle.db, overrides.now),
+    groups: new GroupService(dbHandle.db, overrides.now, discovery),
     calls,
     speed,
     integrations,

@@ -501,6 +501,7 @@ function CommunityProfile({
   const [afterMatch, setAfterMatch] = useState(settings.photosAfterMatch);
   const [rose, setRose] = useState(settings.weeklyRose);
   const [game, setGame] = useState(settings.chatGame);
+  const [memberGroups, setMemberGroups] = useState(settings.memberGroups);
   const [lenses, setLenses] = useState<DiscoveryLens[]>(settings.discoveryLenses);
   const [resources, setResources] = useState(settings.safetyResources ?? '');
   const [discreetName, setDiscreetName] = useState(settings.discreetName ?? '');
@@ -522,6 +523,7 @@ function CommunityProfile({
         photosAfterMatch: afterMatch,
         weeklyRose: rose,
         chatGame: game,
+        memberGroups,
         discoveryLenses: lenses,
         safetyResources: resources.trim() || null,
         discreetName: discreetName.trim() || null,
@@ -625,6 +627,20 @@ function CommunityProfile({
       </div>
       <p id="chat-game-help" className="help">
         {t.branding.chatGameHelp}
+      </p>
+      {/* Phase 76f: members may propose groups (each approved in Groups). */}
+      <div className="checkbox">
+        <input
+          id="member-groups"
+          type="checkbox"
+          checked={memberGroups}
+          aria-describedby="member-groups-help"
+          onChange={(e) => setMemberGroups(e.target.checked)}
+        />
+        <label htmlFor="member-groups">{t.branding.memberGroups}</label>
+      </div>
+      <p id="member-groups-help" className="help">
+        {t.branding.memberGroupsHelp}
       </p>
       {/* Phase 76b: the discovery lenses members can pick in Discover. */}
       <fieldset>
