@@ -7,13 +7,14 @@ packages:
   - e2e
 onlyBuiltDependencies:
   - esbuild
-# Advisories reviewed in docs/SECURITY_REVIEW.md: build-time tooling only (Expo CLI, Metro,
-# drizzle-kit), never run by the API or worker, with no patched version available. Re-check monthly.
+# Advisories reviewed in docs/SECURITY_REVIEW.md: build-time tooling only (Expo CLI), never run by
+# the API or worker or shipped in the app, with no patched version in the major the tool requires.
+# Re-checked 2026-10-31 (phase 77a): the node-forge and braces entries were fixed upstream and
+# removed, so they can't hide a regression. Re-check monthly.
 auditConfig:
   ignoreGhsas:
-    - GHSA-86w9-cpqp-85rv # node-forge via @expo/cli (dev HTTPS certificates)
-    - GHSA-vfj7-8cjw-p6xm # braces via metro-file-map (build-time globs we control)
-    - GHSA-mrhx-c7xc-m3w5 # zod 3 via @expo/cli (validates local config; our own code uses zod >= 4.6.6)
+    - GHSA-mrhx-c7xc-m3w5 # zod 3 via @expo/cli (validates local config; fixed only in zod 4, which @expo/cli doesn't accept; our own code uses zod >= 4.6.6)
+    - GHSA-gcqx-w48m-w2h4 # deepmerge via @expo/config (low; merges our own app.json at build time; no patched version)
 # Patched versions for advisories in build-time tooling (phase 21). Both are used only while
 # generating migrations (drizzle-kit's loader) or an iOS project (Expo's config plugins).
 overrides:
@@ -24,3 +25,7 @@ overrides:
   # Expo's CLI (dev server certificates only, never in the app): the October 2026 node-forge
   # advisories (PEM ReDoS, PKCS#12, TLS records, X.509) are fixed from 1.4.1.
   'node-forge': ^1.4.1
+  # Phase 77a: dev tooling only, patched in the next major (same Node support): eslint's file
+  # matching (ReDoS) and the Expo CLI's file search (AbortSignal bypass).
+  'minimatch@10': ^11.0.1
+  'glob@13': ^14.0.2
