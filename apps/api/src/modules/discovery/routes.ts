@@ -63,7 +63,11 @@ export const discoveryRoutes: FastifyPluginAsyncZod<{
       },
     },
     async (request) => ({
-      profiles: await discovery.discover(currentUser(request).id, request.query.limit),
+      profiles: await discovery.discover(
+        currentUser(request).id,
+        request.query.limit,
+        request.query.lens,
+      ),
     }),
   );
 

@@ -1247,6 +1247,16 @@ export const en = {
       unanswered: 'Open my chats',
     },
   },
+  lens: {
+    label: 'Only',
+    all: 'Everyone',
+    shared_interests: 'Shared interests',
+    nearby: 'Nearby',
+    new_here: 'New here',
+    same_goal: 'Same goal',
+    shows_up: 'Shows up',
+    empty: 'No one in this view right now. Try another.',
+  },
   rose: {
     send: 'Send a rose',
     sendHint: "Your one rose this week, to {{name}}. It's a like that stands out.",

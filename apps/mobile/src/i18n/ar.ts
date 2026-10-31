@@ -1224,6 +1224,16 @@ export const ar: Translations = {
       unanswered: 'فتح محادثاتي',
     },
   },
+  lens: {
+    label: 'فقط',
+    all: 'الجميع',
+    shared_interests: 'اهتمامات مشتركة',
+    nearby: 'بالقرب',
+    new_here: 'جدد هنا',
+    same_goal: 'الهدف نفسه',
+    shows_up: 'يحضرون المواعيد',
+    empty: 'لا أحد في هذا العرض الآن. جرّب عرضًا آخر.',
+  },
   rose: {
     send: 'أرسل وردة',
     sendHint: 'وردتك الوحيدة هذا الأسبوع، إلى {{name}}. إعجاب يلفت النظر.',

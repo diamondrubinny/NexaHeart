@@ -49,5 +49,5 @@
 
 ### Not done here (76b and later)
 
-- Discovery lenses set by the community, interest groups, the question bank and the question game
+- Interest groups, the question bank and the question game
   in chat, prompt polls and video prompts.

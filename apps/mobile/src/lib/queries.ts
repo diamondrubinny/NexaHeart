@@ -3,6 +3,7 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { intentions, type Intention, type Locale } from '@nexaheart/shared';
 import type {
+  DiscoveryLens,
   RoseStatus,
   MyAlbum,
   CoachResponse,
@@ -311,11 +312,16 @@ export const discoveryKeys = {
   profile: (id: string) => ['profile', id] as const,
 };
 
-export function useDiscover() {
+/** Phase 76b: a lens narrows the deck (the same key prefix, so decisions refresh every lens). */
+export function useDiscover(lens?: DiscoveryLens) {
   return useQuery({
-    queryKey: discoveryKeys.discover,
+    queryKey: lens ? [...discoveryKeys.discover, lens] : discoveryKeys.discover,
     queryFn: async () =>
-      (await apiFetch<{ profiles: PublicProfile[] }>('/v1/discover?limit=10')).profiles,
+      (
+        await apiFetch<{ profiles: PublicProfile[] }>(
+          `/v1/discover?limit=10${lens ? `&lens=${lens}` : ''}`,
+        )
+      ).profiles,
   });
 }
 

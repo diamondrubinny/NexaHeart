@@ -3,6 +3,8 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import {
   MAX_SAFETY_RESOURCES,
+  discoveryLenses,
+  type DiscoveryLens,
   contrastRatio,
   identityVocabularies,
   intentions,
@@ -498,6 +500,7 @@ function CommunityProfile({
   const [faith, setFaith] = useState(settings.faithModule);
   const [afterMatch, setAfterMatch] = useState(settings.photosAfterMatch);
   const [rose, setRose] = useState(settings.weeklyRose);
+  const [lenses, setLenses] = useState<DiscoveryLens[]>(settings.discoveryLenses);
   const [resources, setResources] = useState(settings.safetyResources ?? '');
   const [discreetName, setDiscreetName] = useState(settings.discreetName ?? '');
   const [risk, setRisk] = useState(settings.riskCountries.join(', '));
@@ -517,6 +520,7 @@ function CommunityProfile({
         faithModule: faith,
         photosAfterMatch: afterMatch,
         weeklyRose: rose,
+        discoveryLenses: lenses,
         safetyResources: resources.trim() || null,
         discreetName: discreetName.trim() || null,
         // "IL, ae" → ["IL", "AE"]; the server refuses anything that isn't a 2-letter code.
@@ -606,6 +610,24 @@ function CommunityProfile({
       <p id="weekly-rose-help" className="help">
         {t.branding.weeklyRoseHelp}
       </p>
+      {/* Phase 76b: the discovery lenses members can pick in Discover. */}
+      <fieldset>
+        <legend>{t.branding.lenses}</legend>
+        {discoveryLenses.map((l) => (
+          <div key={l} className="checkbox">
+            <input
+              id={`lens-${l}`}
+              type="checkbox"
+              checked={lenses.includes(l)}
+              onChange={(e) =>
+                setLenses((cur) => (e.target.checked ? [...cur, l] : cur.filter((x) => x !== l)))
+              }
+            />
+            <label htmlFor={`lens-${l}`}>{t.branding.lensNames[l]}</label>
+          </div>
+        ))}
+        <p className="help">{t.branding.lensesHelp}</p>
+      </fieldset>
       {/* Phase 67a: local help members find under Settings → "Help near you". */}
       <label htmlFor="safety-resources">{t.branding.safetyResources}</label>
       <textarea

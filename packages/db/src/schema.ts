@@ -1031,6 +1031,11 @@ export const instanceSettings = pgTable(
     introductionHours: smallint('introduction_hours').notNull().default(336),
     /** Phase 76a: a free rose every week (on). */
     weeklyRose: boolean('weekly_rose').notNull().default(true),
+    /** Phase 76b: the discovery lenses offered (all by default). */
+    discoveryLenses: text('discovery_lenses')
+      .array()
+      .notNull()
+      .default(sql`'{shared_interests,nearby,new_here,same_goal,shows_up}'::text[]`),
     /** Phase 73b: share banned photos' hashes with partners, and accept theirs (off). */
     shareTrustSignals: boolean('share_trust_signals').notNull().default(false),
     communityCountry: varchar('community_country', { length: 2 }),

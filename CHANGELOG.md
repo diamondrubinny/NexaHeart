@@ -6,6 +6,10 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **Discovery lenses**: in Discover, narrow the same deck to shared interests, nearby, new here,
+  the same goal, or people who show up to their dates. The filters both ways still apply; a lens
+  only keeps who fits it. Communities choose which lenses to offer.
+
 - **A weekly rose**: everyone gets one free rose a week, a like that stands out and comes first in
   the other person's likes. Nobody can buy more; communities can turn it off.
 

@@ -44,6 +44,10 @@ import {
   type MyVisibility,
   type VisibilityItem,
   ROSE_EVERY_DAYS,
+  discoveryLenses,
+  LENS_NEARBY_KM,
+  LENS_NEW_DAYS,
+  type DiscoveryLens,
   type RoseStatus,
 } from '@nexaheart/shared';
 import type { Realtime } from '../../lib/realtime.js';
@@ -97,6 +101,23 @@ interface Ranked {
   km: number;
   /** Absent when a profile is shown outside discovery (likes, matches). */
   result?: ScoreResult | undefined;
+}
+
+/** Phase 76b: whether a candidate fits a lens, from what the deck already knows. */
+export function fitsLens(row: CandidateRow, lens: DiscoveryLens): boolean {
+  const goal = (i: string) => (i === 'marriage' ? 'long_term' : i);
+  switch (lens) {
+    case 'shared_interests':
+      return Number(row.shared_interests) > 0;
+    case 'nearby':
+      return Number(row.km) <= LENS_NEARBY_KM;
+    case 'new_here':
+      return Number(row.account_age_days) <= LENS_NEW_DAYS;
+    case 'same_goal':
+      return goal(row.candidate_intention) === goal(row.viewer_intention);
+    case 'shows_up':
+      return Boolean(row.showed_up);
+  }
 }
 
 export class DiscoveryService {
@@ -230,18 +251,31 @@ export class DiscoveryService {
       )`);
   }
 
-  async discover(viewerId: string, limit: number): Promise<PublicProfile[]> {
+  async discover(viewerId: string, limit: number, lens?: DiscoveryLens): Promise<PublicProfile[]> {
+    // Phase 76b: a lens the community offers narrows the same deck; it never widens it.
+    if (lens) {
+      const { rows } = await this.db.execute<{ offered: string[] | null }>(
+        sql`SELECT discovery_lenses AS offered FROM instance_settings WHERE id = 1`,
+      );
+      const offered = rows[0]?.offered ?? [...discoveryLenses];
+      if (!offered.includes(lens)) {
+        throw new HttpError(
+          400,
+          ErrorCode.ValidationError,
+          'This community doesn’t offer that view.',
+        );
+      }
+    }
     const picks = await this.db
       .select({ id: dailyPicks.candidateId })
       .from(dailyPicks)
       .where(and(eq(dailyPicks.userId, viewerId), eq(dailyPicks.servedOn, this.today())));
-    const ranked = this.score(
-      await this.candidates(viewerId, {
-        excludeDecided: true,
-        excludeSaved: true,
-        excludeIds: picks.map((p) => p.id),
-      }),
-    ).slice(0, limit);
+    const rows = await this.candidates(viewerId, {
+      excludeDecided: true,
+      excludeSaved: true,
+      excludeIds: picks.map((p) => p.id),
+    });
+    const ranked = this.score(lens ? rows.filter((r) => fitsLens(r, lens)) : rows).slice(0, limit);
     await this.recordImpressions(
       viewerId,
       ranked.map((r) => r.userId),

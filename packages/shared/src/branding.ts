@@ -7,6 +7,7 @@ import { identityVocabularies } from './identity.js';
 import { genders, genderSchema, intentions, intentionSchema, MAX_AGE, MIN_AGE } from './profile.js';
 import { MAX_CALL_MAX_MINUTES, MIN_CALL_MAX_MINUTES } from './calls.js';
 import { localeSchema } from './common.js';
+import { discoveryLenses } from './discovery.js';
 import { introductionOrders, introductionWindows } from './introductions.js';
 
 /** WCAG 2.x relative luminance of a #RRGGBB color. */
@@ -161,6 +162,11 @@ export const instanceSettingsInputSchema = z
       .refine((l) => new Set(l).size === l.length),
     /** Phase 73a: before a match, partner communities get the full card or a short one. */
     partnerCards: z.enum(partnerCardModes),
+    /** Phase 76b: which discovery lenses to offer (each once). */
+    discoveryLenses: z
+      .array(z.enum(discoveryLenses))
+      .max(discoveryLenses.length)
+      .refine((l) => new Set(l).size === l.length),
     /** Phase 76a: a free rose every week. */
     weeklyRose: z.boolean(),
     /** Phase 73b: share banned photos' hashes with partners, and accept theirs (for review). */

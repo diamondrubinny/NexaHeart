@@ -16,6 +16,7 @@ import {
   signupModes,
   introductionOrders,
   partnerCardModes,
+  discoveryLenses,
   webManifest,
   webPushConfigSchema,
 } from '@nexaheart/shared';
@@ -62,6 +63,7 @@ export function instanceInfo(env: Env): InstanceInfo {
       photosAfterMatch: false,
       safetyResources: null,
       riskCountries: [],
+      lenses: [...discoveryLenses],
       join: { minAge: 18, maxAge: null, genders: [], declaration: null },
     },
     integrations: { captcha: null, analytics: null, webErrors: false },
@@ -189,6 +191,7 @@ export const adminSettingsSchema = z.object({
   partnerCards: z.enum(partnerCardModes),
   shareTrustSignals: z.boolean(),
   weeklyRose: z.boolean(),
+  discoveryLenses: z.array(z.enum(discoveryLenses)),
   communityCountry: z.string().nullable(),
   introductionOrder: z.enum(introductionOrders),
   introductionHours: z.number().int(),
