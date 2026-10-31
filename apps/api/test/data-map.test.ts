@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 const privacy = readFileSync(new URL('../../../docs/PRIVACY.md', import.meta.url), 'utf8');
 const appendix = privacy.slice(privacy.indexOf('## Appendix: every database table'));
 const listed = new Set([...appendix.matchAll(/^\| `([a-z_0-9]+)` +\|/gm)].map((m) => m[1]!));
-const tables = Object.values(schema)
+const tables = (Object.values(schema) as unknown[])
   .filter((value): value is PgTable => value instanceof PgTable)
   .map((table) => getTableConfig(table).name);
 
