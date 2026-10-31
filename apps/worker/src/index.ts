@@ -17,6 +17,7 @@ import {
   type DeleteObjectsJob,
   type EmbedProfileJob,
   type ProcessAudioJob,
+  type ProcessVideoJob,
   type ProcessPhotoJob,
   creditLine,
   PAUSE_SWEEP_SECONDS,
@@ -27,7 +28,13 @@ import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createClamavScanner, noopScanner } from './clamav.js';
 import { loadWorkerEnv, webPushSubject } from './env.js';
-import { deleteObjects, processAudio, processPhoto, type JobContext } from './jobs.js';
+import {
+  deleteObjects,
+  processAudio,
+  processPhoto,
+  processVideo,
+  type JobContext,
+} from './jobs.js';
 import { sendPush } from './push.js';
 import { cleanupPrivacy, handleInactiveAccounts } from './privacy-jobs.js';
 import { processCheckins } from './checkin-jobs.js';
@@ -174,6 +181,8 @@ async function main(): Promise<void> {
           return processPhoto(ctx, job.data as ProcessPhotoJob);
         case MediaJob.ProcessAudio:
           return processAudio(ctx, job.data as ProcessAudioJob);
+        case MediaJob.ProcessVideo:
+          return processVideo(ctx, job.data as ProcessVideoJob);
         case MediaJob.DeleteObjects:
           return deleteObjects(ctx, job.data as DeleteObjectsJob);
         default:

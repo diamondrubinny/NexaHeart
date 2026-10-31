@@ -6,6 +6,7 @@ import type {
   DeleteObjectsJob,
   ProcessAudioJob,
   ProcessPhotoJob,
+  ProcessVideoJob,
   RealtimeEvent,
 } from '@nexaheart/shared';
 import { SIGNAL_PHOTO_DISTANCE, SIGNAL_REPORT_PREFIX } from '@nexaheart/shared';
@@ -21,6 +22,7 @@ import {
   processImage,
   SAME_PHOTO_DISTANCE,
 } from './image.js';
+import { InvalidVideoError, transcodeVideo } from './video.js';
 
 const { photos, audioClips, auditLogs, reports } = schema;
 
@@ -341,4 +343,81 @@ export async function processAudio(
   await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey]);
   if (updated.length > 0) await notify();
   return updated.length === 0 ? 'orphaned' : 'clean';
+}
+
+/**
+ * Phase 76h: a video prompt. Scanned, sniffed, re-encoded without metadata (see video.ts), with a
+ * poster frame checked against banned photos; then it waits for a moderator ('review'). Nothing
+ * here makes it visible: only an approval does.
+ */
+export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob): Promise<string> {
+  const { profileVideos } = schema;
+  const [row] = await ctx.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
+  if (!row || !row.quarantineKey || (row.status !== 'quarantine' && row.status !== 'processing')) {
+    return 'skipped';
+  }
+  await ctx.db
+    .update(profileVideos)
+    .set({ status: 'processing' })
+    .where(eq(profileVideos.id, videoId));
+  const original = await ctx.storage.getBuffer(ctx.storage.buckets.quarantine, row.quarantineKey);
+  const rejectVideo = async (reason: string) => {
+    await ctx.db
+      .update(profileVideos)
+      .set({ status: 'rejected', rejectReason: reason, quarantineKey: null })
+      .where(eq(profileVideos.id, videoId));
+    await ctx.db.insert(auditLogs).values({
+      actorId: null,
+      action: 'video.rejected',
+      targetType: 'video',
+      targetId: videoId,
+      meta: { reason, owner: row.userId },
+    });
+    await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey!]);
+    return 'rejected';
+  };
+
+  if (ctx.scanningEnabled) {
+    const result = await ctx.scanner.scan(original);
+    if (!result.clean) {
+      ctx.log.warn({ videoId, signature: result.signature }, 'malware detected; video rejected');
+      return rejectVideo('malware');
+    }
+  } else {
+    ctx.log.warn({ videoId }, 'MALWARE_SCAN=disabled: video was not scanned');
+  }
+
+  let processed;
+  try {
+    processed = await transcodeVideo(original, {
+      ffmpeg: ctx.ffmpegPath,
+      ffprobe: ctx.ffprobePath,
+    });
+  } catch (error) {
+    if (!(error instanceof InvalidVideoError)) throw error;
+    return rejectVideo(error.message);
+  }
+  // A frame like a photo banned here (phase 21): refused.
+  const phash = await perceptualHash(processed.poster);
+  if (phash !== null && (await matchesBannedPhoto(ctx, phash))) return rejectVideo('banned_photo');
+
+  const key = `videos/${row.userId}/${videoId}.mp4`;
+  const posterKey = `videos/${row.userId}/${videoId}.jpg`;
+  await ctx.storage.put(ctx.storage.buckets.media, key, processed.data, 'video/mp4');
+  await ctx.storage.put(ctx.storage.buckets.media, posterKey, processed.poster, 'image/jpeg');
+  const updated = await ctx.db
+    .update(profileVideos)
+    .set({
+      status: 'review',
+      mediaKey: key,
+      posterKey,
+      quarantineKey: null,
+      durationMs: processed.durationMs,
+    })
+    .where(and(eq(profileVideos.id, videoId), eq(profileVideos.userId, row.userId)))
+    .returning({ id: profileVideos.id });
+  // Replaced or deleted meanwhile: drop what we made.
+  if (updated.length === 0) await ctx.storage.delete(ctx.storage.buckets.media, [key, posterKey]);
+  await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey]);
+  return updated.length === 0 ? 'orphaned' : 'review';
 }

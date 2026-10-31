@@ -298,6 +298,17 @@ export const reportDetailSchema = reportSummarySchema.extend({
       prompts: z.array(z.object({ promptKey: z.string(), answer: z.string() })),
       /** Phase 77d: the other texts members can see on the profile (a song, a poll). */
       anthem: z.object({ title: z.string(), artist: z.string() }).nullable().optional(),
+      /** Phase 76h: the member's processed video prompt (waiting or approved), for staff. */
+      video: z
+        .object({
+          id: z.uuid(),
+          promptKey: z.string(),
+          status: z.string(),
+          url: z.string(),
+          posterUrl: z.string(),
+        })
+        .nullable()
+        .optional(),
       poll: z
         .object({ question: z.string(), answers: z.array(z.string()) })
         .nullable()

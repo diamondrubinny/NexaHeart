@@ -63,6 +63,8 @@ import { CheckinService } from './modules/checkins/service.js';
 import { DateService } from './modules/dates/service.js';
 import { GameService } from './modules/game/service.js';
 import { GroupService } from './modules/groups/service.js';
+import { VideoService } from './modules/video/service.js';
+import { blurredOwners } from './lib/photo-blur.js';
 import { VenueService } from './modules/dates/venues.js';
 import { EventService } from './modules/events/service.js';
 import { CityIndex } from './modules/places/cities.js';
@@ -83,6 +85,8 @@ export interface Services {
   profileQueue: ProfileQueue;
   notifyQueue: NotifyQueue;
   audio: AudioService;
+  /** Phase 76h: video prompts. */
+  videos: VideoService;
   federation: FederationService;
   federated: FederatedMembers;
   federatedChat: FederatedChat;
@@ -226,6 +230,12 @@ export function createServices(
   const instance = new InstanceService(dbHandle.db, env, photos);
   const audio = new AudioService(dbHandle.db, storage, mediaQueue);
   audio.useVisibility((viewerId, ownerId) => discovery.canView(viewerId, ownerId));
+  const videos = new VideoService(dbHandle.db, storage, mediaQueue);
+  videos.useVisibility(
+    (viewerId, ownerId) => discovery.canView(viewerId, ownerId),
+    async (viewerId, ownerId) =>
+      (await blurredOwners(dbHandle.db, viewerId, [ownerId])).has(ownerId),
+  );
   const transcribeQueue =
     overrides.transcribeQueue !== undefined
       ? overrides.transcribeQueue
@@ -460,6 +470,7 @@ export function createServices(
     dates: new DateService(dbHandle.db, chat, venues, overrides.now),
     games: new GameService(dbHandle.db, chat),
     groups: new GroupService(dbHandle.db, overrides.now, discovery),
+    videos,
     calls,
     speed,
     integrations,

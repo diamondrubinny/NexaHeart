@@ -877,6 +877,21 @@ export class MeService {
         { quarantineKey: null, mediaKey: c.opusKey },
       ]),
     );
+    // Phase 76h: the video prompt and its poster.
+    const videos = await this.db
+      .select({
+        quarantineKey: schema.profileVideos.quarantineKey,
+        mediaKey: schema.profileVideos.mediaKey,
+        posterKey: schema.profileVideos.posterKey,
+      })
+      .from(schema.profileVideos)
+      .where(eq(schema.profileVideos.userId, userId));
+    keys.push(
+      ...videos.flatMap((v) => [
+        { quarantineKey: v.quarantineKey, mediaKey: v.mediaKey },
+        { quarantineKey: null, mediaKey: v.posterKey },
+      ]),
+    );
     await this.db.transaction(async (tx) => {
       // The account's sign-in history (phase 31) is only for its owner: it goes with the account.
       await tx

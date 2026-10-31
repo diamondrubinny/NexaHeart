@@ -7,6 +7,7 @@ export const MEDIA_QUEUE = 'media';
 export const MediaJob = {
   ProcessPhoto: 'process-photo',
   ProcessAudio: 'process-audio',
+  ProcessVideo: 'process-video',
   DeleteObjects: 'delete-objects',
 } as const;
 
@@ -14,6 +15,11 @@ export interface ProcessAudioJob {
   audioId: string;
   /** Shorter limit than a voice message, e.g. a voice prompt (phase 19). */
   maxSeconds?: number;
+}
+
+/** Phase 76h: a video prompt to scan and re-encode. */
+export interface ProcessVideoJob {
+  videoId: string;
 }
 
 export interface ProcessPhotoJob {

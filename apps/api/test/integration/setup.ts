@@ -9,6 +9,7 @@ import {
   SENSITIVE_CONSENT_VERSION,
   type DeleteObjectsJob,
   type ProcessAudioJob,
+  type ProcessVideoJob,
   type ProcessPhotoJob,
   type AlertJob,
   type PushJob,
@@ -51,6 +52,7 @@ export interface TestContext {
   jobs: {
     process: ProcessPhotoJob[];
     audio: ProcessAudioJob[];
+    video: ProcessVideoJob[];
     delete: DeleteObjectsJob[];
     embed: string[];
     push: PushJob[];
@@ -171,6 +173,7 @@ export async function setupIntegration(options: SetupOptions = {}): Promise<Test
   const jobs: TestContext['jobs'] = {
     process: [],
     audio: [],
+    video: [],
     delete: [],
     embed: [],
     push: [],
@@ -185,6 +188,7 @@ export async function setupIntegration(options: SetupOptions = {}): Promise<Test
   const mediaQueue: MediaQueue = {
     processPhoto: async (job) => void jobs.process.push(job),
     processAudio: async (job) => void jobs.audio.push(job),
+    processVideo: async (job) => void jobs.video.push(job),
     deleteObjects: async (job) => void jobs.delete.push(job),
     close: async () => undefined,
   };

@@ -259,6 +259,8 @@ export async function exportMemberData(
     .innerJoin(t.profiles, eq(t.profiles.userId, t.groupCrushes.targetId))
     .innerJoin(t.interestGroups, eq(t.interestGroups.id, t.groupCrushes.groupId))
     .where(eq(t.groupCrushes.userId, userId));
+  // 76h: my video prompt (the re-encoded file, not what I uploaded: that's never kept).
+  const [video] = await db.select().from(t.profileVideos).where(eq(t.profileVideos.userId, userId));
   // 76g: my song.
   const [song] = await db
     .select({ title: t.profileAnthems.title, artist: t.profileAnthems.artist })
@@ -590,6 +592,24 @@ export async function exportMemberData(
       file,
     });
   }
+  let videoEntry = null;
+  if (video) {
+    let file: string | null = null;
+    if (video.mediaKey && (video.status === 'review' || video.status === 'clean')) {
+      file = `video/${video.id}.mp4`;
+      files[file] = new Uint8Array(await storage.getBuffer(storage.buckets.media, video.mediaKey));
+    }
+    videoEntry = {
+      id: video.id,
+      promptKey: video.promptKey,
+      status: video.status,
+      rejectReason: video.rejectReason,
+      durationMs: video.durationMs,
+      uploadedAt: iso(video.createdAt),
+      reviewedAt: iso(video.reviewedAt),
+      file,
+    };
+  }
   const voiceEntries = [];
   for (const c of clips) {
     let file: string | null = null;
@@ -765,6 +785,7 @@ export async function exportMemberData(
     questionGameAnswers: gameAnswers.map((g) => ({ ...g, at: iso(g.at) })),
     promptPoll: poll ?? null,
     song: song ?? null,
+    videoPrompt: videoEntry,
     interestGroups: groupsJoined.map((g) => ({ ...g, joinedAt: iso(g.joinedAt) })),
     groupPosts: groupPostsMine.map((p) => ({ ...p, at: iso(p.at) })),
     // 76f: my own secret crushes (nobody else's, and never who has one on me).
@@ -877,7 +898,7 @@ export async function exportMemberData(
   files['data.json'] = strToU8(JSON.stringify(data, null, 2));
   files['README.txt'] = strToU8(
     'This archive contains your data from this NexaHeart community.\n' +
-      'data.json: your account, profile, choices and activity. photos/ and voice/: your files.\n' +
+      'data.json: your account, profile, choices and activity. photos/, voice/ and video/: your files.\n' +
       'Keep it safe: it contains personal information.\n',
   );
   return zipSync(files, { level: 6 });

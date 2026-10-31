@@ -15,6 +15,7 @@ import {
   type DeleteObjectsJob,
   type ProcessAudioJob,
   type ProcessPhotoJob,
+  type ProcessVideoJob,
   type PushJob,
   TRANSCRIBE_QUEUE,
   TranscribeJob,
@@ -25,6 +26,7 @@ import { Redis } from 'ioredis';
 export interface MediaQueue {
   processPhoto(job: ProcessPhotoJob): Promise<void>;
   processAudio(job: ProcessAudioJob): Promise<void>;
+  processVideo(job: ProcessVideoJob): Promise<void>;
   deleteObjects(job: DeleteObjectsJob): Promise<void>;
   close(): Promise<void>;
 }
@@ -75,6 +77,9 @@ export function createMediaQueue(redisUrl: string): MediaQueue {
     },
     async processAudio(job) {
       await queue.add(MediaJob.ProcessAudio, job, { jobId: `audio-${job.audioId}` });
+    },
+    async processVideo(job) {
+      await queue.add(MediaJob.ProcessVideo, job, { jobId: `video-${job.videoId}` });
     },
     async deleteObjects(job) {
       if (job.quarantineKeys.length === 0 && job.mediaKeys.length === 0) return;

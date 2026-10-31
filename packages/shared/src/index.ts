@@ -45,3 +45,4 @@ export * from './poll.js';
 export * from './groups.js';
 export type { ScamSignal } from './signals.js';
 export * from './anthem.js';
+export * from './video.js';

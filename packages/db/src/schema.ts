@@ -2442,3 +2442,27 @@ export const profileAnthems = pgTable('profile_anthems', {
   artist: varchar('artist', { length: 80 }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Phase 76h: a video answer to a prompt, one per member. Uploaded to quarantine, scanned,
+ * re-encoded without metadata, then shown only after a moderator approved it (status 'clean').
+ * Deleted with the account; media deleted when replaced or rejected.
+ */
+export const profileVideos = pgTable('profile_videos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  promptKey: varchar('prompt_key', { length: 40 }).notNull(),
+  /** quarantine → processing → review → clean | rejected. */
+  status: varchar('status', { length: 12 }).notNull().default('quarantine'),
+  quarantineKey: text('quarantine_key'),
+  mediaKey: text('media_key'),
+  posterKey: text('poster_key'),
+  durationMs: integer('duration_ms'),
+  rejectReason: varchar('reject_reason', { length: 32 }),
+  reviewedBy: text('reviewed_by').references(() => user.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
