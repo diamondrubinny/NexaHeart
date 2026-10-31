@@ -275,7 +275,29 @@ export class DiscoveryService {
       excludeSaved: true,
       excludeIds: picks.map((p) => p.id),
     });
-    const ranked = this.score(lens ? rows.filter((r) => fitsLens(r, lens)) : rows).slice(0, limit);
+    // Phase 77b: "nearby" would confirm the distance of people who hide it, so they're left out of it.
+    const hidden =
+      lens === 'nearby' && rows.length > 0
+        ? new Set(
+            (
+              await this.db
+                .select({ userId: preferences.userId })
+                .from(preferences)
+                .where(
+                  and(
+                    inArray(
+                      preferences.userId,
+                      rows.map((r) => r.id),
+                    ),
+                    eq(preferences.hideDistance, true),
+                  ),
+                )
+            ).map((r) => r.userId),
+          )
+        : new Set<string>();
+    const ranked = this.score(
+      lens ? rows.filter((r) => fitsLens(r, lens) && !hidden.has(r.id)) : rows,
+    ).slice(0, limit);
     await this.recordImpressions(
       viewerId,
       ranked.map((r) => r.userId),
@@ -1110,6 +1132,19 @@ export class DiscoveryService {
       ) OR EXISTS (
         -- A double chat they were in together (phase 22), even after it closed.
         SELECT 1 FROM double_matches dm WHERE dm.members @> ARRAY[${viewerId}, ${targetId}]::text[]
+      ) OR EXISTS (
+        -- Phase 77b: an interest group they share, or one either left in the last 30 days (so
+        -- what one posted there can be reported even by someone outside their dating deck).
+        SELECT 1 FROM (
+          SELECT group_id, user_id FROM group_members
+          UNION ALL
+          SELECT group_id, user_id FROM group_departures WHERE left_at > now() - interval '30 days'
+        ) a JOIN (
+          SELECT group_id, user_id FROM group_members
+          UNION ALL
+          SELECT group_id, user_id FROM group_departures WHERE left_at > now() - interval '30 days'
+        ) b ON a.group_id = b.group_id
+        WHERE a.user_id = ${viewerId} AND b.user_id = ${targetId}
       ) AS ok`);
     return Boolean(result.rows[0]?.ok);
   }

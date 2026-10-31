@@ -21,6 +21,7 @@ import { Events } from './pages/Events';
 import { Integrations } from './pages/Integrations';
 import { Partners } from './pages/Partners';
 import { Venues } from './pages/Venues';
+import { Groups } from './pages/Groups';
 import { Signup } from './pages/Signup';
 import { Verifications } from './pages/Verifications';
 import { Appeals } from './pages/Appeals';
@@ -87,6 +88,7 @@ function Shell({
       | 'verifications'
       | 'appeals'
       | 'venues'
+      | 'groups'
       | 'events'
       | 'signup'
       | 'audit'
@@ -114,13 +116,15 @@ function Shell({
                     ? t.integrations.nav
                     : key === 'branding'
                       ? t.branding.nav
-                      : key === 'venues'
-                        ? t.venues.nav
-                        : key === 'events'
-                          ? t.events.nav
-                          : key === 'signup'
-                            ? t.signup.nav
-                            : t.nav[key]}
+                      : key === 'groups'
+                        ? t.groups.nav
+                        : key === 'venues'
+                          ? t.venues.nav
+                          : key === 'events'
+                            ? t.events.nav
+                            : key === 'signup'
+                              ? t.signup.nav
+                              : t.nav[key]}
       </a>
     </li>
   );
@@ -140,6 +144,7 @@ function Shell({
               {link('reviews')}
               {link('appeals')}
               {link('venues')}
+              {link('groups')}
               {link('events')}
               {link('signup')}
               {link('partners')}
@@ -185,6 +190,7 @@ function Routes({ staff }: { staff: NonNullable<Awaited<ReturnType<typeof api.me
   if (route[0] === 'reviews') return <Reviews isAdmin={staff.role === 'admin'} />;
   if (route[0] === 'appeals') return <Appeals />;
   if (route[0] === 'venues') return <Venues isAdmin={staff.role === 'admin'} />;
+  if (route[0] === 'groups') return <Groups isAdmin={staff.role === 'admin'} />;
   if (route[0] === 'events') return <Events isAdmin={staff.role === 'admin'} />;
   if (route[0] === 'signup') return <Signup isAdmin={staff.role === 'admin'} />;
   if (route[0] === 'partners') return <Partners isAdmin={staff.role === 'admin'} />;

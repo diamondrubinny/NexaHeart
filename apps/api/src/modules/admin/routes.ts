@@ -64,6 +64,10 @@ import {
   matchmakersReportSchema,
   pendingProfilesSchema,
   reviewDecisionSchema,
+  adminGroupPostSchema,
+  groupInputSchema,
+  groupSchema,
+  groupUpdateSchema,
 } from '@nexaheart/shared';
 import type { Storage, StoredObject } from '@nexaheart/storage';
 import type { FastifyReply } from 'fastify';
@@ -81,6 +85,7 @@ import type { PhotoService } from '../photos/service.js';
 import type { VerificationService } from '../safety/verification.js';
 import type { VenueService } from '../dates/venues.js';
 import type { OrganizerService } from '../events/organizers.js';
+import type { GroupService } from '../groups/service.js';
 import type { EventService } from '../events/service.js';
 import type { FederationService } from '../federation/service.js';
 import type { TrustService } from '../trust/service.js';
@@ -129,6 +134,8 @@ export const adminRoutes: FastifyPluginAsyncZod<{
   profileReview?: ProfileReviewService;
   /** Phase 71e. */
   organizers?: OrganizerService;
+  /** Phase 76e. */
+  groups?: GroupService;
 }> = async (
   app,
   {
@@ -151,6 +158,7 @@ export const adminRoutes: FastifyPluginAsyncZod<{
     introductions,
     profileReview,
     organizers,
+    groups,
   },
 ) => {
   await app.register(multipart, {
@@ -755,6 +763,61 @@ export const adminRoutes: FastifyPluginAsyncZod<{
       return venues.update(staff.id, request.params.id, request.body);
     },
   );
+
+  // Interest groups (phase 76e): every staff member sees them and their posts (to moderate); only
+  // admins open, edit or archive a group.
+  if (groups) {
+    app.get(
+      '/v1/admin/groups',
+      { schema: { response: { 200: z.object({ groups: z.array(groupSchema) }) } } },
+      async () => ({ groups: await groups.listAll() }),
+    );
+    app.post(
+      '/v1/admin/groups',
+      {
+        config: perUserLimit(60, 60 * 60 * 1000),
+        schema: { body: groupInputSchema, response: { 201: groupSchema } },
+      },
+      async (request, reply) => {
+        const staff = currentUser(request);
+        adminOnly(staff.role);
+        return reply.status(201).send(await groups.create(staff.id, request.body));
+      },
+    );
+    app.patch(
+      '/v1/admin/groups/:id',
+      {
+        config: perUserLimit(200, 60 * 60 * 1000),
+        schema: { params: idParams, body: groupUpdateSchema, response: { 200: groupSchema } },
+      },
+      async (request) => {
+        const staff = currentUser(request);
+        adminOnly(staff.role);
+        return groups.update(staff.id, request.params.id, request.body);
+      },
+    );
+    app.get(
+      '/v1/admin/groups/:id/posts',
+      {
+        schema: {
+          params: idParams,
+          response: { 200: z.object({ posts: z.array(adminGroupPostSchema) }) },
+        },
+      },
+      async (request) => ({ posts: await groups.adminPosts(request.params.id) }),
+    );
+    app.post(
+      '/v1/admin/group-posts/:id/remove',
+      {
+        config: perUserLimit(300, 60 * 60 * 1000),
+        schema: { params: idParams, response: { 204: z.null() } },
+      },
+      async (request, reply) => {
+        await groups.removePost(currentUser(request).id, request.params.id);
+        return reply.status(204).send(null);
+      },
+    );
+  }
 
   // Community events (phase 14): every staff member can see them, only admins change them.
   app.get(

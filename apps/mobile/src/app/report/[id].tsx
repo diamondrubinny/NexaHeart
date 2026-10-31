@@ -46,7 +46,15 @@ function ReportScreen() {
     name = '',
     matchId,
     category: preset,
-  } = useLocalSearchParams<{ id: string; name?: string; matchId?: string; category?: string }>();
+    groupPostId,
+  } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    matchId?: string;
+    category?: string;
+    /** Phase 76e: a group post being reported; the server copies it as evidence. */
+    groupPostId?: string;
+  }>();
   const report = useReport();
   // Phase 65: the extortion banner opens the form with "Threat" chosen.
   const [category, setCategory] = useState<ReportCategory | undefined>(
@@ -72,6 +80,7 @@ function ReportScreen() {
         category,
         ...(details.trim() ? { details: details.trim() } : {}),
         messageIds,
+        ...(groupPostId ? { groupPostIds: [groupPostId] } : {}),
         block,
       });
       setDone(t('report.done'));
@@ -144,6 +153,11 @@ function ReportScreen() {
         maxLength={1000}
       />
       <View style={styles.options}>
+        {groupPostId ? (
+          <AppText variant="caption" tone="muted">
+            {t('groups.postAttached')}
+          </AppText>
+        ) : null}
         {matchId ? (
           <Checkbox
             label={t('report.attach')}

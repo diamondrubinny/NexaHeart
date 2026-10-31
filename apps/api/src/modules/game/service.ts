@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { randomInt } from 'node:crypto';
-import { checkHarm } from '@nexaheart/ai';
+import { checkHarm, detectScamSignals } from '@nexaheart/ai';
 import { schema, type Database } from '@nexaheart/db';
 import {
   ErrorCode,
@@ -46,6 +46,8 @@ export function gameView(game: GameRow, userA: string, viewerId: string): GameVi
     theyAnswered: theirs !== null,
     theirAnswer: revealed ? theirs : null,
     revealed,
+    // Phase 77b: the same scam warnings as a message (links, money, moving off the app).
+    scam: revealed && theirs ? detectScamSignals(theirs, 0) : [],
   };
 }
 
@@ -85,6 +87,8 @@ export class GameService {
       throw new HttpError(409, ErrorCode.Conflict, 'The question game is off in this community.');
     }
     await this.chat.checkConversationStart(matchId, userId);
+    // Phase 77b: "verified members only" and the other writing rules apply to the game too.
+    await this.chat.requireMayWrite(matchId, userId, otherId);
     const asked = new Set(
       (
         await this.db
@@ -142,6 +146,7 @@ export class GameService {
     if (!row) throw notFound();
     // 404 for anyone outside the chat, and once it is closed or blocked.
     const { otherId } = await this.chat.participant(row.game.matchId, userId);
+    await this.chat.requireMayWrite(row.game.matchId, userId, otherId);
     if (checkHarm(input.answer).flagged) {
       throw new HttpError(
         422,

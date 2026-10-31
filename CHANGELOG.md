@@ -6,6 +6,22 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **Interest groups**: groups the community's admins open around a shared interest. Members join,
+  see each other and a board; posts are harm-checked like messages and can be reported (the post
+  is copied as evidence). Membership never shows on profiles and is never sent to partner
+  communities. Dashboard → Groups to open, close and moderate.
+
+### Fixed
+
+- **Security review of the new features (phase 77b)**: seven findings fixed — members who share
+  only a group can report each other; deleting a group post keeps it 30 days for moderation; group
+  lists and posts respect "hide me from my contacts" and incognito; the Question Game follows
+  "verified members only" and shows scam warnings; the "nearby" lens leaves out people who hide
+  their distance; scam warnings on group posts; reports after leaving a group. See
+  `docs/SECURITY_REVIEW.md`.
+- The loading spinner had no accessible name (and an `aria-label` on a plain container): the
+  name is now on the spinner itself (axe `aria-progressbar-name`, `aria-prohibited-attr`).
+
 - **Prompt polls**: a question with 2-3 answers on your profile, in your own words. Someone who
   likes your profile can pick one, and the pick arrives with the like ("Picked: …"). No counts and
   no results are stored or shown.

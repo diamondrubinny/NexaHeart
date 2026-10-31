@@ -49,4 +49,4 @@ profile; someone who likes the profile can pick one, and the pick arrives with t
   with "No pick" in the decision panel, "Picked: …" in Likes.
 - Tests: integration `poll.test.ts` (4); e2e `pnpm --dir e2e poll` (en, he), axe 0; screenshots
   `198-poll-editor`, `199-poll-pick`.
-- Next: interest groups, video prompts, Secret Crush.
+- Next: interest groups (76e), video prompts, Secret Crush in groups.

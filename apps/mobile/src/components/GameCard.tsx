@@ -97,6 +97,7 @@ export function GameCard({ message, otherName }: { message: MessageView; otherNa
         <View accessibilityLiveRegion="polite" aria-live="polite">
           {game.revealed && game.theirAnswer !== null ? (
             <View style={styles.answer} testID="game-reveal">
+              {game.scam.length > 0 ? <Banner tone="error" message={t('chat.scamBody')} /> : null}
               <AppText variant="caption" tone="muted">
                 {otherName}
               </AppText>

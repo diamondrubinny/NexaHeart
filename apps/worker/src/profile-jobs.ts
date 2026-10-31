@@ -68,7 +68,7 @@ export async function cleanupDiscovery(
 export async function purgeUnsent(
   db: Database,
   storage: Storage,
-): Promise<{ unsentPurged: number }> {
+): Promise<{ unsentPurged: number; groupPostsPurged: number }> {
   const days = sql.raw(String(UNSENT_KEEP_DAYS));
   const old = sql`m.unsent_at < now() - interval '${days} days'`;
   const images = await db.execute<{
@@ -111,7 +111,14 @@ export async function purgeUnsent(
     );
     await db.execute(sql`DELETE FROM ${sql.raw(table)} WHERE id IN (${ids})`);
   }
-  return { unsentPurged: purged.rowCount ?? 0 };
+  // Phase 76e: group posts the admins removed are kept as long, then deleted.
+  const posts = await db.execute(sql`
+    DELETE FROM group_posts WHERE removed_at < now() - interval '${days} days'`);
+  // Phase 77b: who left a group is remembered 30 days (for reports), then forgotten.
+  await db.execute(
+    sql`DELETE FROM group_departures WHERE left_at < now() - interval '${days} days'`,
+  );
+  return { unsentPurged: purged.rowCount ?? 0, groupPostsPurged: posts.rowCount ?? 0 };
 }
 
 /**

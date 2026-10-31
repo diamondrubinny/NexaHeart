@@ -9,11 +9,14 @@ export function Loading() {
   const colors = useColors();
   const { t } = useTranslation();
   return (
-    <View
-      style={[styles.wrap, { backgroundColor: colors.background }]}
-      accessibilityLabel={t('common.loading')}
-    >
-      <ActivityIndicator size="large" color={colors.primary} />
+    // The name goes on the progressbar itself: on a plain View an aria-label is not allowed (axe
+    // aria-prohibited-attr), and an unnamed progressbar fails aria-progressbar-name.
+    <View style={[styles.wrap, { backgroundColor: colors.background }]}>
+      <ActivityIndicator
+        size="large"
+        color={colors.primary}
+        accessibilityLabel={t('common.loading')}
+      />
     </View>
   );
 }

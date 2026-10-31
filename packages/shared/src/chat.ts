@@ -27,16 +27,9 @@ export const UNMATCHED_CHAT_RETENTION_DAYS = 30;
  */
 export const NEW_ACCOUNT_CHAT_STARTS = 10;
 
-export const harmCategories = ['insult', 'sexual', 'threat'] as const;
-export const scamSignals = [
-  'money',
-  'crypto',
-  'gift_card',
-  'off_platform',
-  'link',
-  /** Phase 65: threats to share images or tell people unless the person pays. */
-  'extortion',
-] as const;
+// Phase 77b: in their own module, so game.ts and groups.ts can use them without an import cycle.
+export { harmCategories, scamSignals } from './signals.js';
+import { harmCategories, scamSignals } from './signals.js';
 
 /** Phase 30: my own message can be unsent this long after sending. */
 export const UNSEND_MINUTES = 15;

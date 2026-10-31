@@ -23,6 +23,7 @@ import { checkinRoutes } from './modules/checkins/routes.js';
 import { dateRoutes } from './modules/dates/routes.js';
 import { gameRoutes } from './modules/game/routes.js';
 import { pollRoutes } from './modules/poll/routes.js';
+import { groupRoutes } from './modules/groups/routes.js';
 import { eventRoutes } from './modules/events/routes.js';
 import { speedRoutes } from './modules/speed/routes.js';
 import { travelRoutes } from './modules/places/routes.js';
@@ -162,6 +163,7 @@ export async function buildApp(env: Env, deps: AppDependencies): Promise<Fastify
       introductions: services.introductions,
       profileReview: services.profileReview,
       organizers: services.organizers,
+      groups: services.groups,
     });
     await typed.register(chaperoneRoutes, { auth: services.auth, chaperones: services.chaperones });
     await typed.register(resumePublicRoutes, { resume: services.resume });
@@ -215,6 +217,7 @@ export async function buildApp(env: Env, deps: AppDependencies): Promise<Fastify
     });
     await typed.register(gameRoutes, { auth: services.auth, games: services.games });
     await typed.register(pollRoutes, { auth: services.auth, db: services.dbHandle.db });
+    await typed.register(groupRoutes, { auth: services.auth, groups: services.groups });
     await typed.register(eventRoutes, {
       auth: services.auth,
       events: services.events,
