@@ -2,17 +2,22 @@
 
 > 🔍 An internal review, not a substitute for an independent penetration test before a public launch.
 
-## Dependency advisories (`pnpm audit --prod`, 2026-10-21)
+## Dependency advisories (`pnpm audit`, 2026-10-21, re-checked 2026-10-31 in phase 77a)
 
 | Advisory                                                                 | Package (path)                                      | Severity | Reachable at runtime?                                                                                           | Decision                                                                                                                       |
 | ------------------------------------------------------------------------ | --------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) | node-forge (`expo` → `@expo/cli`)                   | high     | No: the Expo CLI uses it for local development certificates; it is not part of the app bundle, API or worker    | Ignored in `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`); no patched version exists. Re-check monthly                      |
-| [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | braces (`expo` → Metro → micromatch)                | high     | No: build-time file globbing with patterns from the project itself                                              | Ignored, same reason                                                                                                           |
+| [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) | node-forge (`expo` → `@expo/cli`)                   | high     | No: the Expo CLI uses it for local development certificates; it is not part of the app bundle, API or worker    | Fixed upstream (`node-forge` override ^1.4.1); the ignore entry was **removed** on 2026-10-31 so it can't hide a regression    |
+| [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | braces (`expo` → Metro → micromatch)                | high     | No: build-time file globbing with patterns from the project itself                                              | Fixed upstream; the ignore entry was **removed** on 2026-10-31                                                                 |
 | [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | zod 3 (`expo` → `@expo/cli`)                        | high     | No: the Expo CLI validates its own local config files with it; the API, worker and apps use zod 4.6.7 (patched) | Ignored (2026-10-23): no patched zod 3 exists and forcing zod 4 on the CLI would break it. Re-check when Expo moves to zod 4   |
 | [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) | esbuild ≤ 0.24 (`better-auth` → `drizzle-kit` peer) | moderate | No: only affects `esbuild --serve` dev servers, never started                                                   | Fixed (2026-10-23): `pnpm-workspace.yaml` overrides `@esbuild-kit/core-utils>esbuild` to ^0.25; `drizzle-kit generate` checked |
 | [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq) | uuid < 11.1.1 (Expo config plugins → xcode)         | moderate | No: native project generation, and only when a buffer is passed                                                 | Fixed (2026-10-23): override `xcode>uuid` to ^11.1.1; `xcode` project IDs checked                                              |
 
-CI still fails on any **new** high or critical advisory.
+| [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) | minimatch 10 (`eslint`, `typescript-eslint`) | moderate | No: lint-time file matching with patterns from the project | Fixed (2026-10-31): override `minimatch@10` to ^11.0.1 (same Node support); lint checked to still report a planted error |
+| [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | glob 13 (`@expo/cli`, `@expo/config`) | moderate | No: build-time file search | Fixed (2026-10-31): override `glob@13` to ^14.0.2; the web export and typed routes checked |
+| [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) | deepmerge (`@expo/config`) | low | No: merges the project's own `app.json` at build time | Ignored (2026-10-31): no patched version exists. Re-check monthly |
+
+CI still fails on any **new** high or critical advisory. After phase 77a, `pnpm audit` (all
+dependencies, not only production) reports nothing except the two documented ignores.
 
 ## Review of phases 76a-76e (2026-10-31, phase 77b)
 
