@@ -23,8 +23,13 @@ import { AppLockGate } from '../components/AppLockGate';
 import { ServerStatusBanner } from '../components/ServerStatusBanner';
 import { useInstance } from '../lib/queries';
 import { useColors } from '../lib/theme';
+import { useFonts } from 'expo-font';
+import { fontAssets } from '../lib/fonts';
 
 function Navigator() {
+  // Phase 79: Rubik, bundled. Not awaited: text shows in the system font for a moment instead of
+  // blocking the app.
+  useFonts(fontAssets);
   const { direction } = useLocale();
   const colors = useColors();
   const session = authClient.useSession();

@@ -25,7 +25,9 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -44,8 +46,18 @@
         "expo-localization",
         {
           "supportedLocales": {
-            "ios": ["he", "en", "ar", "ru"],
-            "android": ["he", "en", "ar", "ru"]
+            "ios": [
+              "he",
+              "en",
+              "ar",
+              "ru"
+            ],
+            "android": [
+              "he",
+              "en",
+              "ar",
+              "ru"
+            ]
           }
         }
       ],
@@ -72,7 +84,10 @@
           "microphonePermission": "NexaHeart uses the microphone only while you record a voice message or are in a call."
         }
       ],
-      ["expo-notifications", {}],
+      [
+        "expo-notifications",
+        {}
+      ],
       "expo-sharing",
       [
         "@config-plugins/react-native-webrtc",
@@ -92,7 +107,8 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

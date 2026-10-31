@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useKeyboardMode } from '../lib/focus-visible';
 import { useLocale } from '../lib/locale';
-import { MIN_TOUCH, radius, spacing, focusRing, useColors } from '../lib/theme';
+import { MIN_TOUCH, radius, spacing, focusRing, useCardStyle, useColors } from '../lib/theme';
 import { AppText } from './AppText';
 import { RemoteImage } from './RemoteImage';
 import { AboutSection } from './AboutSection';
@@ -59,6 +59,7 @@ function IconButton({
 export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
   const { t, i18n } = useTranslation();
   const colors = useColors();
+  const card = useCardStyle();
   const { direction, locale } = useLocale();
   const mine = useMe().data?.about.interests;
   const afterMatch = useInstance().data?.community.photosAfterMatch ?? false;
@@ -91,7 +92,7 @@ export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
   const total = profile.photos.length;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.card, card, { backgroundColor: colors.surface }]}>
       {photo ? (
         <View style={styles.photoWrap}>
           <RemoteImage

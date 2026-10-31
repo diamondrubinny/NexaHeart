@@ -4,25 +4,41 @@
 import { StyleSheet, View } from 'react-native';
 import { radius, spacing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
+import { Icon } from './Icon';
 
 export function Banner({ tone, message }: { tone: 'error' | 'success' | 'info'; message: string }) {
   const colors = useColors();
   const palette = {
-    error: { bg: colors.dangerSoft, fg: 'danger' as const },
-    success: { bg: colors.successSoft, fg: 'success' as const },
-    info: { bg: colors.primarySoft, fg: 'primary' as const },
+    error: { bg: colors.dangerSoft, fg: 'danger' as const, edge: colors.danger },
+    success: { bg: colors.successSoft, fg: 'success' as const, edge: colors.success },
+    info: { bg: colors.primarySoft, fg: 'primary' as const, edge: colors.primary },
   }[tone];
   return (
     <View
       accessibilityRole={tone === 'error' ? 'alert' : 'text'}
       accessibilityLiveRegion={tone === 'error' ? 'assertive' : 'polite'}
-      style={[styles.box, { backgroundColor: palette.bg }]}
+      // Phase 79: a colored edge at the start, and an icon for success and errors, so the tone
+      // isn't carried by color alone.
+      style={[styles.box, { backgroundColor: palette.bg, borderStartColor: palette.edge }]}
     >
-      <AppText variant="label" tone={palette.fg}>
+      {tone !== 'info' ? (
+        <Icon name={tone === 'success' ? 'check' : 'alert'} color={palette.edge} size={20} />
+      ) : null}
+      <AppText variant="label" tone={palette.fg} style={styles.text}>
         {message}
       </AppText>
     </View>
   );
 }
 
-const styles = StyleSheet.create({ box: { padding: spacing.md, borderRadius: radius.md } });
+const styles = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderStartWidth: 4,
+  },
+  text: { flex: 1 },
+});

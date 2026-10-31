@@ -5,7 +5,7 @@ import type { PublicProfile } from '@nexaheart/shared';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useKeyboardMode } from '../lib/focus-visible';
-import { radius, spacing, focusRing, useColors } from '../lib/theme';
+import { radius, spacing, focusRing, useCardStyle, useColors } from '../lib/theme';
 import { AppText } from './AppText';
 import { RemoteImage } from './RemoteImage';
 
@@ -27,6 +27,7 @@ export function PersonRow({
   const { t } = useTranslation();
   const colors = useColors();
   const keyboard = useKeyboardMode();
+  const card = useCardStyle();
   const cover = profile.photos[0];
   return (
     <Pressable
@@ -35,7 +36,8 @@ export function PersonRow({
       accessibilityRole="button"
       style={(state) => [
         styles.row,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        card,
+        state.pressed && { opacity: 0.92 },
         keyboard && (state as { focused?: boolean }).focused && focusRing(colors),
       ]}
     >
@@ -71,11 +73,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: spacing.md,
-    padding: spacing.sm,
+    padding: spacing.sm + 2,
     borderRadius: radius.lg,
-    borderWidth: 1,
     alignItems: 'center',
   },
-  thumb: { width: 76, height: 96, borderRadius: radius.md },
+  thumb: { width: 72, height: 88, borderRadius: radius.md },
   text: { flex: 1, gap: 2 },
 });

@@ -13,7 +13,10 @@ import { Screen } from '../components/Screen';
 import { DEFAULT_TAGLINE } from '@nexaheart/shared';
 import { useDisplay } from '../lib/display';
 import { useInstance } from '../lib/queries';
-import { radius, spacing, useColors } from '../lib/theme';
+import { radius, spacing, useCardStyle, useColors } from '../lib/theme';
+import { fontFor } from '../lib/fonts';
+import { HeroBackground } from '../components/HeroBackground';
+import { Icon } from '../components/Icon';
 import { PoweredBy } from '../components/PoweredBy';
 
 export default function Welcome() {
@@ -22,11 +25,13 @@ export default function Welcome() {
   const instance = useInstance();
   const display = useDisplay();
   const features = ['safety', 'free', 'ai'] as const;
-  const icons = { safety: '🛡️', free: '💜', ai: '✨' };
+  const icons = { safety: 'shield', free: 'likes', ai: 'sparkle' } as const;
+  const card = useCardStyle();
 
   return (
     <Screen footer={<Button label={t('welcome.start')} onPress={() => router.push('/sign-in')} />}>
       <View style={[styles.hero, { backgroundColor: colors.primary }]}>
+        <HeroBackground color={colors.primary} textColor={colors.onPrimary} />
         {instance.data?.logoUrl ? (
           <RemoteImage path={instance.data.logoUrl} label="" style={styles.logo} />
         ) : null}
@@ -47,14 +52,10 @@ export default function Welcome() {
       </AppText>
       <View style={styles.list} role="list">
         {features.map((key) => (
-          <View
-            key={key}
-            style={[styles.item, { backgroundColor: colors.surface }]}
-            role="listitem"
-          >
-            <AppText variant="heading" importantForAccessibility="no" accessibilityElementsHidden>
-              {icons[key]}
-            </AppText>
+          <View key={key} style={[styles.item, card]} role="listitem">
+            <View style={[styles.badge, { backgroundColor: colors.primarySoft }]}>
+              <Icon name={icons[key]} color={colors.primary} />
+            </View>
             <AppText variant="body" style={styles.itemText}>
               {t(`welcome.features.${key}`)}
             </AppText>
@@ -104,7 +105,8 @@ export default function Welcome() {
 
 const styles = StyleSheet.create({
   hero: {
-    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderRadius: radius.xl,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
@@ -122,14 +124,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
+  },
+  badge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemText: { flex: 1 },
   links: { gap: spacing.sm },
   linkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   link: {
     fontSize: 15,
-    fontWeight: '600',
+    ...fontFor('600'),
     textDecorationLine: 'underline',
     paddingVertical: spacing.sm,
   },
