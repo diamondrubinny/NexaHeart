@@ -259,6 +259,11 @@ export async function exportMemberData(
     .innerJoin(t.profiles, eq(t.profiles.userId, t.groupCrushes.targetId))
     .innerJoin(t.interestGroups, eq(t.interestGroups.id, t.groupCrushes.groupId))
     .where(eq(t.groupCrushes.userId, userId));
+  // 76g: my song.
+  const [song] = await db
+    .select({ title: t.profileAnthems.title, artist: t.profileAnthems.artist })
+    .from(t.profileAnthems)
+    .where(eq(t.profileAnthems.userId, userId));
   // 76d: my prompt poll.
   const [poll] = await db
     .select({ question: t.profilePolls.question, answers: t.profilePolls.answers })
@@ -759,6 +764,7 @@ export async function exportMemberData(
     messagesYouSent: sent.map((m) => ({ ...m, at: iso(m.at), unsentAt: iso(m.unsentAt) })),
     questionGameAnswers: gameAnswers.map((g) => ({ ...g, at: iso(g.at) })),
     promptPoll: poll ?? null,
+    song: song ?? null,
     interestGroups: groupsJoined.map((g) => ({ ...g, joinedAt: iso(g.joinedAt) })),
     groupPosts: groupPostsMine.map((p) => ({ ...p, at: iso(p.at) })),
     // 76f: my own secret crushes (nobody else's, and never who has one on me).

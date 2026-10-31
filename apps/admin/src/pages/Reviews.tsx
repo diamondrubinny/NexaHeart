@@ -147,6 +147,17 @@ function Pending({ profile, onDone }: { profile: PendingProfile; onDone: () => v
           ))}
         </dl>
       ) : null}
+      {/* Phase 77d: every text members see on the profile. */}
+      {profile.anthem ? (
+        <p dir="auto">
+          🎵 {t.detail.song}: {profile.anthem.title} — {profile.anthem.artist}
+        </p>
+      ) : null}
+      {profile.poll ? (
+        <p dir="auto">
+          📊 {t.detail.poll}: {profile.poll.question} ({profile.poll.answers.join(' / ')})
+        </p>
+      ) : null}
       {error ? <ErrorBox error={error} /> : null}
       {asking ? (
         <fieldset>

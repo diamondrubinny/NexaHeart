@@ -19,6 +19,25 @@
 CI still fails on any **new** high or critical advisory. After phase 77a, `pnpm audit` (all
 dependencies, not only production) reports nothing except the two documented ignores.
 
+## Review of phase 76g (2026-10-31, phase 77d)
+
+An independent read of "my song" found no leak, crash or IDOR (federation and the AI "ask about a
+profile" use explicit allowlists that don't include it). Fixed before merge:
+
+| #   | Severity | Finding                                                                              | Fix                       |
+| --- | -------- | ------------------------------------------------------------------------------------ | ------------------------- |
+| 1   | Medium   | Moderators saw neither the song nor the poll (76d) in a report or the approval queue | Both shown, as plain text |
+| 2   | Low      | The harm check read title and artist separately ("I will" + "kill you" passed)       | Also checked together     |
+| 3   | Low      | Control and bidi characters could visually reorder a song or a poll                  | Refused                   |
+
+Found while testing the fixes, in the shared harm filter used for messages too:
+
+- **Telling someone to harm themselves wasn't caught** ("kill yourself", "kys", "go die", and the
+  same in Hebrew, Arabic and Russian): added to threats.
+- **Lexicon words with letters the normalizer changes never matched**: the text is normalized
+  (diacritics dropped, so "й" becomes "и") but the word lists weren't, so e.g. "тупой" or "займи"
+  were never flagged. Phrases are now normalized the same way.
+
 ## Review of phase 76f (2026-10-31, phase 77c)
 
 A second independent read, before merging member-proposed groups and Secret Crush. Ten findings,

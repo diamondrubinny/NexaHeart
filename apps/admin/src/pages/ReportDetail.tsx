@@ -218,6 +218,17 @@ export function ReportDetail({ id, staff }: { id: string; staff: StaffMe }) {
                   </li>
                 ))}
               </ul>
+              {/* Phase 77d: every text members see on the profile. */}
+              {profile.anthem ? (
+                <p className="user-text" dir="auto">
+                  🎵 {t.detail.song}: {profile.anthem.title} — {profile.anthem.artist}
+                </p>
+              ) : null}
+              {profile.poll ? (
+                <p className="user-text" dir="auto">
+                  📊 {t.detail.poll}: {profile.poll.question} ({profile.poll.answers.join(' / ')})
+                </p>
+              ) : null}
               <h3>{t.detail.photos}</h3>
               <div className="photo-grid">
                 {profile.photoIds.map((photoId, i) => (

@@ -23,6 +23,8 @@ export class ProfileReviewService {
       intention: string;
       bio: string | null;
       prompts: { promptKey: string; answer: string }[] | null;
+      anthem: { title: string; artist: string } | null;
+      poll: { question: string; answers: string[] } | null;
       photo_ids: string[] | null;
       resubmitted_at: Date | null;
       created_at: Date;
@@ -31,6 +33,10 @@ export class ProfileReviewService {
         p.gender, p.intention, p.bio, p.resubmitted_at, p.created_at,
         (SELECT json_agg(json_build_object('promptKey', pr.prompt_key, 'answer', pr.answer) ORDER BY pr.position)
            FROM prompts pr WHERE pr.user_id = p.user_id) AS prompts,
+        (SELECT json_build_object('title', a.title, 'artist', a.artist)
+           FROM profile_anthems a WHERE a.user_id = p.user_id) AS anthem,
+        (SELECT json_build_object('question', pp.question, 'answers', pp.answers)
+           FROM profile_polls pp WHERE pp.user_id = p.user_id) AS poll,
         (SELECT array_agg(ph.id ORDER BY ph.position) FROM photos ph
            WHERE ph.user_id = p.user_id AND ph.purpose = 'profile' AND ph.status = 'clean') AS photo_ids
       FROM profiles p JOIN "user" u ON u.id = p.user_id AND u.status = 'active'
@@ -45,6 +51,8 @@ export class ProfileReviewService {
       intention: r.intention,
       bio: r.bio,
       prompts: r.prompts ?? [],
+      anthem: r.anthem,
+      poll: r.poll,
       photoIds: r.photo_ids ?? [],
       resubmitted: r.resubmitted_at !== null,
       since: new Date(r.resubmitted_at ?? r.created_at).toISOString(),

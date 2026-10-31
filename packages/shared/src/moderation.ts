@@ -296,6 +296,12 @@ export const reportDetailSchema = reportSummarySchema.extend({
       gender: z.string(),
       bio: z.string().nullable(),
       prompts: z.array(z.object({ promptKey: z.string(), answer: z.string() })),
+      /** Phase 77d: the other texts members can see on the profile (a song, a poll). */
+      anthem: z.object({ title: z.string(), artist: z.string() }).nullable().optional(),
+      poll: z
+        .object({ question: z.string(), answers: z.array(z.string()) })
+        .nullable()
+        .optional(),
       photoIds: z.array(z.uuid()),
       verified: z.boolean(),
       memberSince: z.string(),
@@ -423,6 +429,12 @@ export const pendingProfileSchema = z.object({
   intention: z.string(),
   bio: z.string().nullable(),
   prompts: z.array(z.object({ promptKey: z.string(), answer: z.string() })),
+  /** Phase 77d: the song and the poll, also shown to members. */
+  anthem: z.object({ title: z.string(), artist: z.string() }).nullable().optional(),
+  poll: z
+    .object({ question: z.string(), answers: z.array(z.string()) })
+    .nullable()
+    .optional(),
   photoIds: z.array(z.uuid()),
   /** Sent again after changes were asked. */
   resubmitted: z.boolean(),

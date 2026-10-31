@@ -233,6 +233,8 @@ const en = {
     view: 'Review',
   },
   detail: {
+    song: 'Song',
+    poll: 'Poll',
     back: 'Back to reports',
     details: 'Reporter’s description',
     noDetails: 'No description was given.',
@@ -1426,6 +1428,8 @@ const he: Messages = {
     view: 'בדיקה',
   },
   detail: {
+    song: 'שיר',
+    poll: 'סקר',
     back: 'חזרה לדיווחים',
     details: 'תיאור מגיש/ת הדיווח',
     noDetails: 'לא נמסר תיאור.',

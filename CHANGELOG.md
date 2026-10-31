@@ -6,6 +6,10 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **My song**: one song on the profile (title and artist, in your own words). It can be liked
+  like a prompt ("Liked your song"). No music service is connected: nothing about you reaches a
+  third party.
+
 - **Groups members propose, and Secret Crush in a group**: when the community allows it, a member
   proposes a group; it opens once an admin approves it, and the member hosts it (may remove posts
   in it, audited). In a group, mark up to 3 people as a secret crush: nobody is told, unless they
@@ -19,6 +23,9 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Fixed
 
+- **The harm filter** now catches telling someone to harm themselves (4 languages), and words
+  with letters the normalizer changes (e.g. Russian "й") match again — they never had.
+- Moderators see a member's song and poll in reports and in the approval queue.
 - **Security review of the new features (phase 77b)**: seven findings fixed — members who share
   only a group can report each other; deleting a group post keeps it 30 days for moderation; group
   lists and posts respect "hide me from my contacts" and incognito; the Question Game follows

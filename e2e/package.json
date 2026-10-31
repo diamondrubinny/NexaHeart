@@ -50,6 +50,7 @@
     "lenses": "tsx lenses.ts",
     "game": "tsx game.ts",
     "poll": "tsx poll.ts",
+    "anthem": "tsx anthem.ts",
     "groups": "tsx groups.ts",
     "group-crush": "tsx group-crush.ts",
     "devices": "tsx devices.ts",
