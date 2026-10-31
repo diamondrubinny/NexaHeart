@@ -68,6 +68,7 @@ export interface AdminInstanceSettings {
   partnerCards: PartnerCardMode;
   shareTrustSignals: boolean;
   weeklyRose: boolean;
+  chatGame: boolean;
   discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
@@ -155,6 +156,7 @@ export class InstanceService {
         safetyResources: row?.safetyResources ?? null,
         riskCountries: row?.riskCountries ?? [],
         lenses: row?.discoveryLenses ?? [...discoveryLenses],
+        chatGame: row?.chatGame ?? true,
         join: {
           minAge: Math.max(MIN_AGE, row?.joinMinAge ?? MIN_AGE),
           maxAge: row?.joinMaxAge ?? null,
@@ -239,6 +241,7 @@ export class InstanceService {
       partnerCards: row?.partnerCards === 'minimal' ? 'minimal' : 'full',
       shareTrustSignals: row?.shareTrustSignals ?? false,
       weeklyRose: row?.weeklyRose ?? true,
+      chatGame: row?.chatGame ?? true,
       discoveryLenses: (row?.discoveryLenses ?? [...discoveryLenses]).filter(
         (l): l is DiscoveryLens => (discoveryLenses as readonly string[]).includes(l),
       ),

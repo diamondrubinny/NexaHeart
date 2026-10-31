@@ -189,6 +189,7 @@ export function asMessageView(m: FederatedMessage, matchId: string): MessageView
     voice: null,
     date: null,
     call: null,
+    game: null,
     hidden: m.hidden,
     harm: m.harm,
     scam: m.scam,

@@ -602,7 +602,14 @@ export const impressions = pgTable(
 // Chat (phase 3)
 // ---------------------------------------------------------------------------
 
-export const messageKind = pgEnum('message_kind', ['text', 'image', 'voice', 'date', 'call']);
+export const messageKind = pgEnum('message_kind', [
+  'text',
+  'image',
+  'voice',
+  'date',
+  'call',
+  'game',
+]);
 
 /** Voice messages. Same lifecycle as photos: quarantine → scan → re-encode → clean. */
 export const audioClips = pgTable(
@@ -645,6 +652,8 @@ export const messages = pgTable(
     photoId: uuid('photo_id').references(() => photos.id, { onDelete: 'set null' }),
     audioId: uuid('audio_id').references(() => audioClips.id, { onDelete: 'set null' }),
     /** A date card (kind 'date'). Deleting the plan deletes its message. */
+    /** A Question Game card (kind 'game', phase 76c). Deleting the game deletes its message. */
+    gameId: uuid('game_id').references((): AnyPgColumn => chatGames.id, { onDelete: 'cascade' }),
     datePlanId: uuid('date_plan_id').references((): AnyPgColumn => datePlans.id, {
       onDelete: 'cascade',
     }),
@@ -1031,6 +1040,8 @@ export const instanceSettings = pgTable(
     introductionHours: smallint('introduction_hours').notNull().default(336),
     /** Phase 76a: a free rose every week (on). */
     weeklyRose: boolean('weekly_rose').notNull().default(true),
+    /** Phase 76c: the Question Game in chat (on). */
+    chatGame: boolean('chat_game').notNull().default(true),
     /** Phase 76b: the discovery lenses offered (all by default). */
     discoveryLenses: text('discovery_lenses')
       .array()
@@ -2262,4 +2273,36 @@ export const verifyRequests = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.matchId, t.requesterId] })],
+);
+
+/**
+ * Phase 76c: the Question Game in chat. One question from a fixed list; each side answers; neither
+ * answer is shown until both did. Answers are chat content: deleted with the chat, exported, and
+ * kept with a report as evidence.
+ */
+export const chatGames = pgTable(
+  'chat_games',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id, { onDelete: 'cascade' }),
+    question: varchar('question', { length: 40 }).notNull(),
+    startedBy: text('started_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** The answers of the match's user_a and user_b. */
+    answerA: varchar('answer_a', { length: 280 }),
+    answerB: varchar('answer_b', { length: 280 }),
+    /** Set once both answered. */
+    revealedAt: timestamp('revealed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One open question per chat at a time.
+    uniqueIndex('chat_games_open_uq')
+      .on(t.matchId)
+      .where(sql`revealed_at IS NULL`),
+    uniqueIndex('chat_games_question_uq').on(t.matchId, t.question),
+  ],
 );

@@ -61,6 +61,7 @@ import { InstanceService } from './modules/instance/service.js';
 import { VerificationService } from './modules/safety/verification.js';
 import { CheckinService } from './modules/checkins/service.js';
 import { DateService } from './modules/dates/service.js';
+import { GameService } from './modules/game/service.js';
 import { VenueService } from './modules/dates/venues.js';
 import { EventService } from './modules/events/service.js';
 import { CityIndex } from './modules/places/cities.js';
@@ -116,6 +117,7 @@ export interface Services {
   checkins: CheckinService;
   venues: VenueService;
   dates: DateService;
+  games: GameService;
   events: EventService;
   cities: CityIndex;
   travel: TravelService;
@@ -454,6 +456,7 @@ export function createServices(
     chat,
     venues,
     dates: new DateService(dbHandle.db, chat, venues, overrides.now),
+    games: new GameService(dbHandle.db, chat),
     calls,
     speed,
     integrations,

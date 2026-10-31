@@ -145,6 +145,7 @@ export interface AdminInstanceSettings {
   partnerCards: 'full' | 'minimal';
   shareTrustSignals: boolean;
   weeklyRose: boolean;
+  chatGame: boolean;
   discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;

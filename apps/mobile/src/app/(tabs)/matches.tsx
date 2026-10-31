@@ -50,13 +50,15 @@ export default function Matches() {
             ? t('chat.photo')
             : last.kind === 'date' && last.date
               ? t('datePlan.preview', { place: last.date.venue.name })
-              : last.kind === 'call' && last.call
-                ? last.call.video
-                  ? t('call.previewVideo')
-                  : t('call.previewVoice')
-                : last.mine
-                  ? t('chat.you', { text: last.body ?? '' })
-                  : (last.body ?? '');
+              : last.kind === 'game'
+                ? `🎲 ${t('game.preview')}`
+                : last.kind === 'call' && last.call
+                  ? last.call.video
+                    ? t('call.previewVideo')
+                    : t('call.previewVoice')
+                  : last.mine
+                    ? t('chat.you', { text: last.body ?? '' })
+                    : (last.body ?? '');
     const draft = draftText[c.matchId];
     return (
       <PersonRow

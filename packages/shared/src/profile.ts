@@ -303,6 +303,8 @@ export const instanceSchema = z.object({
     riskCountries: z.array(z.string()),
     /** Phase 76b: the discovery lenses this community offers. */
     lenses: z.array(z.string()).optional(),
+    /** Phase 76c: the Question Game in chat (on unless the community turned it off). */
+    chatGame: z.boolean().optional(),
     /** Phase 62c: who may join (checked when the profile is created). */
     /** Phase 63: an age check is required (and a provider is configured). */
     ageCheck: z.boolean(),

@@ -21,6 +21,7 @@ import websocket from '@fastify/websocket';
 import { chatRoutes } from './modules/chat/routes.js';
 import { checkinRoutes } from './modules/checkins/routes.js';
 import { dateRoutes } from './modules/dates/routes.js';
+import { gameRoutes } from './modules/game/routes.js';
 import { eventRoutes } from './modules/events/routes.js';
 import { speedRoutes } from './modules/speed/routes.js';
 import { travelRoutes } from './modules/places/routes.js';
@@ -211,6 +212,7 @@ export async function buildApp(env: Env, deps: AppDependencies): Promise<Fastify
       dates: services.dates,
       venues: services.venues,
     });
+    await typed.register(gameRoutes, { auth: services.auth, games: services.games });
     await typed.register(eventRoutes, {
       auth: services.auth,
       events: services.events,

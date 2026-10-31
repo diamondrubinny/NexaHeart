@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { CallLine } from './CallLine';
+import { GameCard } from './GameCard';
 import { DateCard } from './DateCard';
 import { Reactions, canReact } from './Reactions';
 import { ReplyQuote } from './ReplyQuote';
@@ -112,6 +113,7 @@ export function MessageBubble({
   }
   if (message.kind === 'date') return <DateCard message={message} other={other} />;
   if (message.kind === 'call') return <CallLine message={message} />;
+  if (message.kind === 'game') return <GameCard message={message} otherName={other?.name ?? ''} />;
   const bubble = [
     styles.bubble,
     mine ? styles.mine : styles.theirs,

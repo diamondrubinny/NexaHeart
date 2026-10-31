@@ -500,6 +500,7 @@ function CommunityProfile({
   const [faith, setFaith] = useState(settings.faithModule);
   const [afterMatch, setAfterMatch] = useState(settings.photosAfterMatch);
   const [rose, setRose] = useState(settings.weeklyRose);
+  const [game, setGame] = useState(settings.chatGame);
   const [lenses, setLenses] = useState<DiscoveryLens[]>(settings.discoveryLenses);
   const [resources, setResources] = useState(settings.safetyResources ?? '');
   const [discreetName, setDiscreetName] = useState(settings.discreetName ?? '');
@@ -520,6 +521,7 @@ function CommunityProfile({
         faithModule: faith,
         photosAfterMatch: afterMatch,
         weeklyRose: rose,
+        chatGame: game,
         discoveryLenses: lenses,
         safetyResources: resources.trim() || null,
         discreetName: discreetName.trim() || null,
@@ -609,6 +611,20 @@ function CommunityProfile({
       </div>
       <p id="weekly-rose-help" className="help">
         {t.branding.weeklyRoseHelp}
+      </p>
+      {/* Phase 76c: the Question Game in chat. */}
+      <div className="checkbox">
+        <input
+          id="chat-game"
+          type="checkbox"
+          checked={game}
+          aria-describedby="chat-game-help"
+          onChange={(e) => setGame(e.target.checked)}
+        />
+        <label htmlFor="chat-game">{t.branding.chatGame}</label>
+      </div>
+      <p id="chat-game-help" className="help">
+        {t.branding.chatGameHelp}
       </p>
       {/* Phase 76b: the discovery lenses members can pick in Discover. */}
       <fieldset>
