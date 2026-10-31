@@ -104,6 +104,11 @@ interface Ranked {
 }
 
 /** Phase 76b: whether a candidate fits a lens, from what the deck already knows. */
+/** Phase 77c: one advisory lock per pair, shared by secret crushes and blocks. */
+export function crushPairLock(a: string, b: string): string {
+  return `crush:${[a, b].sort().join(':')}`;
+}
+
 export function fitsLens(row: CandidateRow, lens: DiscoveryLens): boolean {
   const goal = (i: string) => (i === 'marriage' ? 'long_term' : i);
   switch (lens) {
@@ -353,6 +358,46 @@ export class DiscoveryService {
         .where(and(eq(matches.userA, userA), eq(matches.userB, userB)));
       return match!.id;
     });
+    this.notify([a, b], { type: 'match.new', matchId });
+    for (const id of [a, b]) this.onMatch?.(id, matchId).catch(() => undefined);
+    this.appEvents.emit({ type: 'match.created', matchId });
+    return matchId;
+  }
+
+  /**
+   * Phase 77c: a mutual secret crush opens a match, but only if nothing came between the two in the
+   * meantime. Under the same per-pair lock as block() (so a block and a mutual crush can't both
+   * win): both still active, not blocked or unmatched either way, not hidden from each other, and
+   * both still members of the group. Returns null when the match is no longer allowed.
+   */
+  async matchFromMutualCrush(a: string, b: string, groupId: string): Promise<string | null> {
+    const matchId = await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${crushPairLock(a, b)}))`);
+      const { rows } = await tx.execute<{ ok: boolean }>(sql`
+        SELECT (
+          (SELECT count(*) FROM "user" u WHERE u.id IN (${a}, ${b}) AND u.status = 'active') = 2
+          AND ${notSeparated(sql`${a}`, sql`${b}`)}
+          AND ${notContactHidden(sql`${a}`, sql`${b}`)}
+          AND (SELECT count(*) FROM group_members gm
+               WHERE gm.group_id = ${groupId} AND gm.user_id IN (${a}, ${b})) = 2
+        ) AS ok`);
+      if (!rows[0]?.ok) return null;
+      await tx
+        .insert(interactions)
+        .values([
+          { actorId: a, targetId: b, kind: 'like', mode: 'date' },
+          { actorId: b, targetId: a, kind: 'like', mode: 'date' },
+        ])
+        .onConflictDoNothing();
+      const [userA, userB] = [a, b].sort() as [string, string];
+      await tx.insert(matches).values({ userA, userB, mode: 'date' }).onConflictDoNothing();
+      const [match] = await tx
+        .select({ id: matches.id, unmatchedAt: matches.unmatchedAt })
+        .from(matches)
+        .where(and(eq(matches.userA, userA), eq(matches.userB, userB)));
+      return match && !match.unmatchedAt ? match.id : null;
+    });
+    if (!matchId) return null;
     this.notify([a, b], { type: 'match.new', matchId });
     for (const id of [a, b]) this.onMatch?.(id, matchId).catch(() => undefined);
     this.appEvents.emit({ type: 'match.created', matchId });
@@ -1057,6 +1102,10 @@ export class DiscoveryService {
     const closed = await this.db.transaction(async (tx) => {
       const [target] = await tx.select({ id: user.id }).from(user).where(eq(user.id, blockedId));
       if (!target) return [];
+      // Phase 77c: the same per-pair lock as a mutual crush, so the two can't race into a match.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${crushPairLock(blockerId, blockedId)}))`,
+      );
       await tx.insert(blocks).values({ blockerId, blockedId }).onConflictDoNothing();
       // Phase 76f: secret crushes between the two end with the block, both ways.
       await tx.execute(sql`DELETE FROM group_crushes

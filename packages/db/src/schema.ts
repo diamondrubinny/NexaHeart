@@ -2418,6 +2418,11 @@ export const groupCrushes = pgTable(
       .notNull()
       .references(() => interestGroups.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Phase 77c: taken back. The row stays until it expires, so it still counts toward the cap
+     * (taking a crush back and giving it to someone else can't be used as mass likes).
+     */
+    withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.targetId] }),

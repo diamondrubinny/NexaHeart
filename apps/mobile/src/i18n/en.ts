@@ -1357,7 +1357,7 @@ export const en = {
     crushHint: 'Secret crush on {{name}}. Only a mutual one is ever shown.',
     crushMutual: 'It’s mutual! You and {{name}} matched.',
     crushFull:
-      'You have the most secret crushes allowed (or you already matched). Untick one first.',
+      'You’ve used your secret crushes for now. Each one frees its place 30 days after you made it, even if you took it back.',
     openChat: 'Open the chat',
   },
   rose: {

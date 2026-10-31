@@ -102,7 +102,8 @@ describe.skipIf(!integrationEnabled)(
           .statusCode,
       ).toBe(204);
       const seen = (await api(ctx, dan, 'GET', '/v1/groups')).json().groups;
-      expect(seen).toMatchObject([{ id, status: 'open', members: 1, host: { userId: noa.id } }]);
+      // Phase 77c: outsiders don't see who hosts it (membership shows only inside a group).
+      expect(seen).toMatchObject([{ id, status: 'open', members: 1, host: null }]);
 
       await api(ctx, dan, 'POST', `/v1/groups/${id}/join`);
       await api(ctx, eli, 'POST', `/v1/groups/${id}/join`);
@@ -171,8 +172,13 @@ describe.skipIf(!integrationEnabled)(
       for (const m of [noa, ...others]) await api(ctx, m, 'POST', `/v1/groups/${id}/join`);
       for (const m of others.slice(0, 3)) expect((await crush(noa, id, m)).statusCode).toBe(200);
       expect((await crush(noa, id, others[3]!)).statusCode).toBe(409);
-      // Taking one back frees a place.
+      // Phase 77c: taking one back doesn't free a place until it expires (no mass liking).
       expect((await crush(noa, id, others[2]!, false)).statusCode).toBe(200);
+      expect((await crush(noa, id, others[3]!)).statusCode).toBe(409);
+      await q(
+        `UPDATE group_crushes SET created_at = now() - interval '31 days' WHERE target_id = $1`,
+        [others[2]!.id],
+      );
       expect((await crush(noa, id, others[3]!)).statusCode).toBe(200);
 
       // Not a member: 404. Myself: 404.
@@ -190,7 +196,10 @@ describe.skipIf(!integrationEnabled)(
       expect((await crush(dan, id, noa)).statusCode).toBe(404);
       // Leaving the group ends the crushes made there.
       await api(ctx, eli, 'POST', `/v1/groups/${id}/leave`);
-      const { rows } = await q('SELECT target_id FROM group_crushes WHERE user_id = $1', [noa.id]);
+      const { rows } = await q(
+        `SELECT target_id FROM group_crushes WHERE user_id = $1 AND created_at > now() - interval '30 days'`,
+        [noa.id],
+      );
       expect(rows.map((r) => r.target_id).sort()).toEqual([others[3]!.id].sort());
 
       // In my export: my own crushes only.
@@ -198,7 +207,12 @@ describe.skipIf(!integrationEnabled)(
         new Uint8Array((await api(ctx, noa, 'GET', '/v1/me/export')).rawPayload),
       );
       const data = JSON.parse(strFromU8(zip['data.json']!));
-      expect(data.secretCrushes).toMatchObject([{ on: 'Gil', group: 'Hikers' }]);
+      // Everything stored about my crushes, including one I took back (until it's purged).
+      expect(data.secretCrushes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ on: 'Gil', group: 'Hikers', withdrawnAt: null }),
+        ]),
+      );
       const theirs = JSON.parse(
         strFromU8(
           unzipSync(
@@ -207,6 +221,55 @@ describe.skipIf(!integrationEnabled)(
         ),
       );
       expect(theirs.secretCrushes).toEqual([]);
+    });
+
+    it('77c: hosts stay hidden from outsiders and people they block; a host who leaves stops', async () => {
+      await memberGroups(true);
+      const id = (await propose(noa)).json().id as string;
+      await asStaff(admin, 'POST', `/v1/admin/groups/${id}/decision`, { approve: true });
+      expect((await api(ctx, dan, 'GET', '/v1/groups')).json().groups[0].host).toBeNull();
+      await api(ctx, dan, 'POST', `/v1/groups/${id}/join`);
+      await api(ctx, eli, 'POST', `/v1/groups/${id}/join`);
+      expect((await api(ctx, dan, 'GET', '/v1/groups')).json().groups[0].host).toMatchObject({
+        userId: noa.id,
+      });
+      // Blocked by the host: no name, even as a member.
+      await api(ctx, noa, 'POST', '/v1/blocks', { userId: dan.id });
+      expect((await api(ctx, dan, 'GET', `/v1/groups/${id}`)).json().group.host).toBeNull();
+      // A host who leaves stops hosting (and can't remove posts there any more).
+      const p = (
+        await api(ctx, eli, 'POST', `/v1/groups/${id}/posts`, { body: 'Hello all' })
+      ).json();
+      await api(ctx, noa, 'POST', `/v1/groups/${id}/leave`);
+      expect((await api(ctx, noa, 'POST', `/v1/group-posts/${p.id}/remove`)).statusCode).toBe(404);
+      expect((await api(ctx, eli, 'GET', `/v1/groups/${id}`)).json().group.host).toBeNull();
+    });
+
+    it('77c: a decision is made once; archived groups take no crushes; emoji only', async () => {
+      await memberGroups(true);
+      const id = (await propose(noa)).json().id as string;
+      const decide = (approve: boolean) =>
+        asStaff(admin, 'POST', `/v1/admin/groups/${id}/decision`, { approve });
+      expect((await decide(true)).statusCode).toBe(204);
+      expect((await decide(false)).statusCode).toBe(404); // already open: not deleted
+      expect((await api(ctx, noa, 'GET', `/v1/groups/${id}`)).statusCode).toBe(200);
+      await api(ctx, dan, 'POST', `/v1/groups/${id}/join`);
+      await asStaff(admin, 'PATCH', `/v1/admin/groups/${id}`, { archived: true });
+      expect((await crush(noa, id, dan)).statusCode).toBe(404);
+      expect(
+        (await api(ctx, eli, 'POST', '/v1/groups/proposals', { name: 'Words', emoji: 'abc' }))
+          .statusCode,
+      ).toBe(400);
+    });
+
+    it('77c: a mutual crush opens no match once the two are separated', async () => {
+      const id = (await asStaff(admin, 'POST', '/v1/admin/groups', { name: 'Hikers' })).json().id;
+      for (const m of [noa, dan]) await api(ctx, m, 'POST', `/v1/groups/${id}/join`);
+      // The race the lock closes: a block lands between the mutual crush and the match.
+      await q('INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2)', [noa.id, dan.id]);
+      expect(await ctx.services.discovery.matchFromMutualCrush(noa.id, dan.id, id)).toBeNull();
+      const { rows } = await q('SELECT 1 FROM matches');
+      expect(rows).toHaveLength(0);
     });
   },
 );

@@ -69,4 +69,7 @@ Continues [76e](PHASE-76e.md). Two parts:
 - Dashboard: approve/decline proposals; Branding → "Members may propose groups".
 - Tests: integration `group-crush.test.ts` (3); e2e `pnpm --dir e2e group-crush` (en, he), axe 0;
   screenshots `201-crush-mutual`, `admin-22-group-proposal`.
+- Security (77c, before merge): an independent review found ten issues (the host's name shown to
+  outsiders, a block/mutual-crush race, take-back used as mass likes, …), all fixed and tested; see
+  `docs/SECURITY_REVIEW.md`. Migration 0091 adds `group_crushes.withdrawn_at`.
 - Next: video prompts, a representative song.

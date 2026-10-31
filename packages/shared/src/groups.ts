@@ -22,7 +22,21 @@ export const GROUPS_HOSTED_MAX = 3;
 export const SECRET_CRUSHES_MAX = 3;
 export const SECRET_CRUSH_DAYS = 30;
 
-const emojiSchema = z.string().trim().min(1).max(8);
+/**
+ * Phase 77c: an emoji only (pictographs, their modifiers and joiners), not short text: the group
+ * list is public to members, and words here would skip the harm check.
+ */
+const emojiSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(16)
+  .regex(
+    /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200d|\ufe0f)+$/u,
+    {
+      message: 'An emoji only',
+    },
+  );
 
 export const groupSchema = z.object({
   id: z.uuid(),

@@ -19,6 +19,27 @@
 CI still fails on any **new** high or critical advisory. After phase 77a, `pnpm audit` (all
 dependencies, not only production) reports nothing except the two documented ignores.
 
+## Review of phase 76f (2026-10-31, phase 77c)
+
+A second independent read, before merging member-proposed groups and Secret Crush. Ten findings,
+fixed before merge (tests in `group-crush.test.ts`):
+
+| #   | Severity | Finding                                                                                          | Fix                                                                                                                                     |
+| --- | -------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Medium   | The group list named a group's host to everyone, including outsiders and people the host blocked | The host shows only inside the group, to members the host can see both ways (staff and the host aside)                                  |
+| 2   | Medium   | A block racing a mutual crush could still open a match between the two                           | One per-pair lock for blocks and crushes; the match re-checks everything (active, not separated or hidden, both still members) under it |
+| 3   | Low-med  | Taking a crush back freed its place at once: crushes could be used as mass likes                 | A taken-back crush counts toward the cap until it expires (30 days)                                                                     |
+| 4   | Low      | Parallel crushes to different people could pass the cap of 3                                     | A per-member lock around the count and the write                                                                                        |
+| 5   | Low      | A leave or block between the check and the write could leave a crush behind                      | The checks run inside the transaction, under the locks a leave takes                                                                    |
+| 6   | Low      | Approve and decline could both apply (deleting an open group, or a 500)                          | One conditional statement: only a proposal still waiting is decided; otherwise 404                                                      |
+| 7   | Low      | Crushes still worked in archived (read-only) groups                                              | Refused                                                                                                                                 |
+| 8   | Low      | A host who left a group kept removing posts in it and stayed listed as host                      | Leaving ends hosting; host removal requires membership                                                                                  |
+| 9   | Low      | The emoji field took any 8 characters (short words, invisible characters) past the harm check    | Emoji only                                                                                                                              |
+| 10  | Info     | The community-wide cap of groups could be passed by concurrent proposals                         | One lock for everyone who adds a group                                                                                                  |
+
+Verified fine: no endpoint, status code or count reveals someone else's crush; expired crushes are
+ignored everywhere; pending groups are invisible and closed to others; decisions are admin-only.
+
 ## Review of phases 76a-76e (2026-10-31, phase 77b)
 
 An independent read of the new server code (the weekly rose, discovery lenses, the Question Game,

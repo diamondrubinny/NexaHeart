@@ -253,6 +253,7 @@ export async function exportMemberData(
       on: t.profiles.displayName,
       group: t.interestGroups.name,
       at: t.groupCrushes.createdAt,
+      withdrawnAt: t.groupCrushes.withdrawnAt,
     })
     .from(t.groupCrushes)
     .innerJoin(t.profiles, eq(t.profiles.userId, t.groupCrushes.targetId))
@@ -761,7 +762,11 @@ export async function exportMemberData(
     interestGroups: groupsJoined.map((g) => ({ ...g, joinedAt: iso(g.joinedAt) })),
     groupPosts: groupPostsMine.map((p) => ({ ...p, at: iso(p.at) })),
     // 76f: my own secret crushes (nobody else's, and never who has one on me).
-    secretCrushes: crushesMine.map((c) => ({ ...c, at: iso(c.at) })),
+    secretCrushes: crushesMine.map((c) => ({
+      ...c,
+      at: iso(c.at),
+      withdrawnAt: iso(c.withdrawnAt),
+    })),
     blocks: blocks.map((b) => ({ ...b, at: iso(b.at) })),
     reportsYouFiled: reportsFiled.map((r) => ({ ...r, at: iso(r.at) })),
     moderationAffectingYou: moderation.map((m) => ({
