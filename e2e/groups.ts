@@ -120,7 +120,8 @@ try {
       await S.page.getByLabel(a.about, { exact: true }).fill(d.about);
       await S.page.getByRole('button', { name: a.add, exact: true }).click();
       await S.page.getByRole('row', { name: new RegExp(d.group) }).waitFor();
-      check(true, 'the admin opened a group');
+      const notice = await S.page.getByRole('status').first().innerText();
+      check(notice.includes(d.group) && !notice.includes('{'), 'the notice names the group');
       await audit(S.page, `${locale}/admin-groups`);
       await shot(S.page, `${locale}/admin-21-groups`);
     } finally {
@@ -180,6 +181,24 @@ try {
       );
     } finally {
       await D.context.close();
+    }
+
+    // 4. The dashboard: read the group's posts and remove Noa's.
+    const S2 = await open(browser, locale, admin.session, 1280);
+    try {
+      await S2.page.goto(`${ADMIN}/#/groups`);
+      const row = S2.page.getByRole('row', { name: new RegExp(d.group) });
+      await row.getByRole('button', { name: new RegExp(`^${a.posts}`) }).click();
+      await S2.page.getByText(d.post).waitFor();
+      await S2.page.getByRole('button', { name: new RegExp(`^${a.remove}`) }).click();
+      await S2.page.getByText(a.removed).waitFor();
+      check((await S2.page.getByText(d.post).count()) === 0, 'the admin removed the post');
+      const { rows } = await pool.query('SELECT removed_at FROM group_posts WHERE body = $1', [
+        d.post,
+      ]);
+      check(rows.length === 1 && rows[0].removed_at !== null, 'kept, marked removed');
+    } finally {
+      await S2.context.close();
     }
   }
 } finally {

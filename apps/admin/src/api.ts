@@ -100,6 +100,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (code === 'MFA_REQUIRED') window.dispatchEvent(new Event(MFA_REQUIRED_EVENT));
     throw new ApiError(res.status, code, payload?.error?.message ?? res.statusText);
   }
+  // 204 No Content (e.g. removing a post): there's no body to parse.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
