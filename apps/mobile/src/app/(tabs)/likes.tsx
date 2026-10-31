@@ -31,6 +31,8 @@ export default function Likes() {
   if (likes.isPending) return <Loading />;
 
   const describe = (like: LikeReceived) => {
+    // Phase 76a: a rose comes first and says so.
+    if (like.rose) return `🌹 ${t('rose.received')}`;
     if (like.itemType === 'photo') return t('likes.likedPhoto');
     if (like.promptKey) return t('likes.likedPrompt', { prompt: t(`prompt.${like.promptKey}`) });
     return t('likes.likedProfile');

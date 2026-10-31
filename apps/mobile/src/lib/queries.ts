@@ -3,6 +3,7 @@
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { intentions, type Intention, type Locale } from '@nexaheart/shared';
 import type {
+  RoseStatus,
   MyAlbum,
   CoachResponse,
   ConsentInput,
@@ -391,6 +392,16 @@ export function useYourTurn() {
     queryKey: yourTurnKey,
     queryFn: () => apiFetch<YourTurn>('/v1/me/your-turn'),
     refetchOnMount: 'always',
+  });
+}
+
+/** Phase 76a: this week's rose. */
+export const roseKey = ['rose'] as const;
+export function useRose(enabled = true) {
+  return useQuery({
+    queryKey: roseKey,
+    queryFn: () => apiFetch<RoseStatus>('/v1/me/rose'),
+    enabled,
   });
 }
 

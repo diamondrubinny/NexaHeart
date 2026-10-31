@@ -1247,6 +1247,12 @@ export const en = {
       unanswered: 'Open my chats',
     },
   },
+  rose: {
+    send: 'Send a rose',
+    sendHint: "Your one rose this week, to {{name}}. It's a like that stands out.",
+    next: 'Your next rose comes on {{when}}.',
+    received: 'Sent you a rose',
+  },
   interview: {
     open: 'Start with a short interview',
     title: 'A short interview',

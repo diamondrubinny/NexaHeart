@@ -46,6 +46,7 @@
     "date-suggestion": "tsx date-suggestion.ts",
     "ask-profile": "tsx ask-profile.ts",
     "interview": "tsx interview.ts",
+    "rose": "tsx rose.ts",
     "devices": "tsx devices.ts",
     "reactions-undo": "tsx reactions-undo.ts",
     "chat-control": "tsx chat-control.ts",

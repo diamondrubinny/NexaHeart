@@ -188,6 +188,7 @@ export const adminSettingsSchema = z.object({
   riskCountries: z.array(z.string()),
   partnerCards: z.enum(partnerCardModes),
   shareTrustSignals: z.boolean(),
+  weeklyRose: z.boolean(),
   communityCountry: z.string().nullable(),
   introductionOrder: z.enum(introductionOrders),
   introductionHours: z.number().int(),
