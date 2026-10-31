@@ -793,3 +793,27 @@ table caption {
   border-inline-start: 6px solid var(--danger);
   padding-inline-start: 0.75rem;
 }
+
+/* Phase 76h: videos waiting for review. */
+.review-video {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  max-height: 360px;
+  background: #000;
+  border-radius: 8px;
+}
+.video-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  list-style: none;
+  padding: 0;
+}
+.video-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}

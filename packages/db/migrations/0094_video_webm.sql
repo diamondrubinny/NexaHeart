@@ -1,0 +1,1 @@
+ALTER TABLE "profile_videos" ADD COLUMN "webm_key" text;

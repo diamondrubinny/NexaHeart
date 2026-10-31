@@ -19,6 +19,28 @@
 CI still fails on any **new** high or critical advisory. After phase 77a, `pnpm audit` (all
 dependencies, not only production) reports nothing except the two documented ignores.
 
+## Review of phase 76h (2026-10-31, phase 77e)
+
+An independent read of video prompts found no authorization bypass: the files are served only when
+approved, to people who may see the owner with unblurred photos (404 otherwise), and the staff routes
+need a staff role and MFA. ffmpeg runs without a shell, with the sniffed demuxer forced and a
+`file`-only protocol whitelist. Fixed before merge:
+
+| #   | Severity   | Finding                                                                                                                                                                     | Fix                                                                                                                                           |
+| --- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Medium     | A file that re-encodes but has no frame at 1 s (one frame, long audio) failed the poster step with a plain error: 5 retries, then stuck "processing" with the original kept | Every step after decoding refuses the file; the poster falls back to the first frame; the last attempt rejects instead of leaving it stuck    |
+| 2   | Medium     | Nothing bounded the decoder: any ffmpeg decoder, any frame size (a 40 MB file can describe gigantic frames and exhaust memory)                                              | Probe first (codec allowlist, at most 4096 px a side), `-codec_whitelist`, `-max_pixels`, 2 threads, and a 2 GB address-space cap (`prlimit`) |
+| 3   | Low-Medium | A moderator could approve their own video                                                                                                                                   | 403, like reports that involve the moderator                                                                                                  |
+| 4   | Low        | An original could stay in quarantine with no record (a failed delete after the key was cleared; two uploads at once)                                                        | The quarantine key follows from the ids; deletion uses it, and the worker deletes the original before clearing it                             |
+| 5   | Low        | The worker's writes weren't guarded by status: a late duplicate run could undo a moderator's decision                                                                       | Updates only while the video is still being processed                                                                                         |
+
+Found while testing: browsers without H.264 (some Linux builds, like the test browser) couldn't play
+the videos. A WebM (VP8/Opus) rendition is now made from our own clean MP4 and chosen with
+`canPlayType`, as voice messages do with Opus. Left as is: a 416 response has no `Content-Range:
+bytes */size`; staff opening a video isn't logged (decisions are); only the poster frame is compared
+with banned photos (the moderator watches the whole video). Deployment note: clamd's
+`StreamMaxLength` must be at least 40 MB (100 MB in the pinned `clamav/clamav:1.5.4-debian` image).
+
 ## Review of phase 76g (2026-10-31, phase 77d)
 
 An independent read of "my song" found no leak, crash or IDOR (federation and the AI "ask about a

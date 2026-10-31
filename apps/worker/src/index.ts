@@ -182,7 +182,11 @@ async function main(): Promise<void> {
         case MediaJob.ProcessAudio:
           return processAudio(ctx, job.data as ProcessAudioJob);
         case MediaJob.ProcessVideo:
-          return processVideo(ctx, job.data as ProcessVideoJob);
+          return processVideo(
+            ctx,
+            job.data as ProcessVideoJob,
+            job.attemptsMade + 1 >= (job.opts.attempts ?? 1),
+          );
         case MediaJob.DeleteObjects:
           return deleteObjects(ctx, job.data as DeleteObjectsJob);
         default:

@@ -11,6 +11,7 @@ import { MIN_TOUCH, radius, spacing, focusRing, useColors } from '../lib/theme';
 import { AppText } from './AppText';
 import { RemoteImage } from './RemoteImage';
 import { AboutSection } from './AboutSection';
+import { VideoPrompt } from './VideoPrompt';
 import { VoicePlayer } from './VoicePlayer';
 import { VoiceTranscript } from './VoiceTranscript';
 import { useInstance, useMe } from '../lib/queries';
@@ -359,6 +360,28 @@ export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
                   </AppText>
                 </View>
               ))}
+            </View>
+          </View>
+        ) : null}
+
+        {profile.videoPrompt ? (
+          <View
+            style={[
+              styles.prompt,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+            testID="profile-video"
+          >
+            <View style={styles.promptText}>
+              <AppText variant="caption" tone="muted">
+                🎬 {t(`prompt.${profile.videoPrompt.promptKey}`)}
+              </AppText>
+              <VideoPrompt
+                url={profile.videoPrompt.url}
+                posterUrl={profile.videoPrompt.posterUrl}
+                label={t(`prompt.${profile.videoPrompt.promptKey}`)}
+                durationMs={profile.videoPrompt.durationMs}
+              />
             </View>
           </View>
         ) : null}

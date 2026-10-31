@@ -22,6 +22,8 @@ export const videoRejectReasons = [
   'unsupported_format',
   'undecodable',
   'too_long',
+  /** Phase 77e: frames larger than the worker decodes. */
+  'too_large',
   'nudity',
   'other_people',
   'not_the_member',

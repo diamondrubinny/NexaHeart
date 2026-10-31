@@ -51,6 +51,7 @@
     "game": "tsx game.ts",
     "poll": "tsx poll.ts",
     "anthem": "tsx anthem.ts",
+    "video": "tsx video.ts",
     "groups": "tsx groups.ts",
     "group-crush": "tsx group-crush.ts",
     "devices": "tsx devices.ts",

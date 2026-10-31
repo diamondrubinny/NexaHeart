@@ -98,7 +98,7 @@ import type { AppealService } from '../safety/appeals.js';
 import type { ComplianceService } from '../compliance/service.js';
 import type { IntroductionService } from '../introductions/service.js';
 import type { ProfileReviewService } from './review.js';
-import { sendVideoPart } from '../video/routes.js';
+import { sendVideoPart, videoFormatQuery, videoPartOf } from '../video/routes.js';
 import { parseRange, type VideoService } from '../video/service.js';
 
 const ok = z.object({ ok: z.literal(true) });
@@ -781,14 +781,15 @@ export const adminRoutes: FastifyPluginAsyncZod<{
     for (const part of ['video', 'poster'] as const) {
       app.get(
         part === 'video' ? '/v1/admin/videos/:id/file' : '/v1/admin/videos/:id/poster',
-        { schema: { params: idParams } },
+        { schema: { params: idParams, querystring: videoFormatQuery } },
         async (request, reply) => {
+          const which = videoPartOf(part, request.query.format);
           const object = await videos.adminOpen(
             request.params.id,
-            part,
+            which,
             parseRange(request.headers.range),
           );
-          return sendVideoPart(reply, object, part, 'no-store');
+          return sendVideoPart(reply, object, which, 'no-store');
         },
       );
     }

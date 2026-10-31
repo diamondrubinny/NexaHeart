@@ -30,14 +30,14 @@ security-first: **nothing anyone uploads is shown before a moderator approves it
 
 ## Design
 
-| Part   | Change                                                                                                                                           |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| shared | `video.ts`: limits, `myVideoSchema`, `publicProfile.videoPrompt`, admin review schemas                                                           |
-| db     | `profile_videos` (one per member; status, keys, duration, reason, reviewer)                                                                      |
-| worker | `video.ts` (sniff, ffmpeg args, transcode, poster) and a `process-video` job                                                                     |
+| Part   | Change                                                                                                                                                                                                                                              |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| shared | `video.ts`: limits, `myVideoSchema`, `publicProfile.videoPrompt`, admin review schemas                                                                                                                                                              |
+| db     | `profile_videos` (one per member; status, keys, duration, reason, reviewer)                                                                                                                                                                         |
+| worker | `video.ts` (sniff, ffmpeg args, transcode, poster) and a `process-video` job                                                                                                                                                                        |
 | api    | `POST/GET/DELETE /v1/me/video`; `GET /v1/videos/:id` (with **Range**, for iOS) and `/poster`, only for approved videos and people who may see the owner; admin `GET /v1/admin/videos`, `POST /v1/admin/videos/:id/decision`, staff-only file access |
-| mobile | (76h-b) upload, status, player on the profile card                                                                                               |
-| admin  | (76h-b) Videos review page                                                                                                                       |
+| mobile | (76h-b) upload, status, player on the profile card                                                                                                                                                                                                  |
+| admin  | (76h-b) Videos review page                                                                                                                                                                                                                          |
 
 ## Security, privacy, accessibility
 
@@ -57,3 +57,25 @@ security-first: **nothing anyone uploads is shown before a moderator approves it
   may see the owner, 404 to others and before approval; reject; replace; delete; export; account
   deletion.
 - e2e (76h-b): upload in the app, approve in the dashboard, play on the profile; axe 0.
+
+## Done
+
+- Shared `video.ts` (limits, statuses, reasons, schemas); `publicProfile.videoPrompt` (only
+  approved, hidden while the viewer sees the owner's photos blurred, never federated); a report's
+  `reportedProfile.video` for staff.
+- Migrations 0093 `profile_videos`, 0094 `webm_key`.
+- Worker: `video.ts` (sniff, probe, ffmpeg arguments, MP4 + WebM renditions, poster) and the
+  `process-video` job (scan → re-encode → banned-photo check on the poster → `review`).
+- API: `GET/POST/DELETE /v1/me/video`; `GET /v1/videos/:id[?format=webm]` and `/poster` (Range,
+  `no-store`, `nosniff`); staff `GET /v1/admin/videos`, `…/:id/file`, `…/:id/poster`,
+  `POST …/:id/decision` (audited, a reason required to reject, not for one's own video). Export
+  (`videoPrompt` and `video/<id>.mp4`), account deletion and replacement delete every rendition.
+- App: `/video` (choose the prompt, upload, status, preview, replace, remove); the video on the
+  profile card: a poster with a labelled play button, then the player, muted, never autoplaying;
+  WebM where the browser has no H.264. Native uses `expo-video` with the session cookie (📘 to test
+  on real iOS and Android devices).
+- Dashboard: Videos page (watch, approve, or reject with a reason); the video in report details.
+- Security (77e, before merge, from an independent review): see
+  [SECURITY_REVIEW.md](../SECURITY_REVIEW.md#review-of-phase-76h-2026-10-31-phase-77e).
+- Tests: worker `video.test.ts` (6), integration `video.test.ts` (5), e2e `pnpm --dir e2e video`
+  (en, he), axe 0; screenshots `203-video-review`, `204-video-profile`, `admin-23-videos`.

@@ -46,9 +46,15 @@ export const posterUrl = (id: string) => `/v1/videos/${id}/poster`;
 export const adminVideoUrl = (id: string) => `/v1/admin/videos/${id}/file`;
 export const adminPosterUrl = (id: string) => `/v1/admin/videos/${id}/poster`;
 
+/** Phase 77e: the quarantine key follows from the ids, so cleanup never depends on the column. */
+export const videoQuarantineKey = (userId: string, videoId: string) =>
+  `videos/${userId}/${videoId}`;
+
 const notFound = () => new HttpError(404, ErrorCode.NotFound, 'Resource not found.');
 
 type Row = typeof profileVideos.$inferSelect;
+/** The MP4, its WebM rendition, or the poster. */
+export type VideoPart = 'video' | 'webm' | 'poster';
 
 /**
  * Video prompts (phase 76h). An upload is kept in quarantine until the worker scanned and
@@ -106,7 +112,7 @@ export class VideoService {
       .insert(profileVideos)
       .values({ userId, promptKey })
       .returning({ id: profileVideos.id });
-    const key = `videos/${userId}/${row!.id}`;
+    const key = videoQuarantineKey(userId, row!.id);
     try {
       await this.storage.put(this.storage.buckets.quarantine, key, buffer, mime);
       await this.db
@@ -130,20 +136,15 @@ export class VideoService {
     await this.deleteMedia(removed);
   }
 
-  /** Storage keys of a member's video, for account deletion. */
-  async keysOf(userId: string): Promise<{ quarantineKeys: string[]; mediaKeys: string[] }> {
-    const row = await this.row(userId);
-    return {
-      quarantineKeys: row?.quarantineKey ? [row.quarantineKey] : [],
-      mediaKeys: [row?.mediaKey, row?.posterKey].filter((k): k is string => Boolean(k)),
-    };
-  }
-
-  private async deleteMedia(rows: Row[]): Promise<void> {
-    const quarantineKeys = rows.flatMap((r) => (r.quarantineKey ? [r.quarantineKey] : []));
-    const mediaKeys = rows.flatMap((r) => [r.mediaKey, r.posterKey].filter((k) => k !== null));
+  private async deleteMedia(rows: Row[], withQuarantine = true): Promise<void> {
+    const quarantineKeys = withQuarantine
+      ? rows.map((r) => videoQuarantineKey(r.userId, r.id))
+      : [];
+    const mediaKeys = rows.flatMap((r) =>
+      [r.mediaKey, r.posterKey, r.webmKey].filter((k): k is string => k !== null),
+    );
     if (quarantineKeys.length + mediaKeys.length === 0) return;
-    await this.mediaQueue.deleteObjects({ quarantineKeys, mediaKeys: mediaKeys as string[] });
+    await this.mediaQueue.deleteObjects({ quarantineKeys, mediaKeys });
   }
 
   /** Approved videos of these members, for profiles. */
@@ -174,7 +175,7 @@ export class VideoService {
   async open(
     viewerId: string,
     videoId: string,
-    part: 'video' | 'poster',
+    part: VideoPart,
     range?: string,
   ): Promise<StoredObject> {
     const [row] = await this.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
@@ -190,14 +191,14 @@ export class VideoService {
     return this.read(row, part, range);
   }
 
-  private async read(row: Row, part: 'video' | 'poster', range?: string): Promise<StoredObject> {
-    const key = part === 'video' ? row.mediaKey : row.posterKey;
+  private async read(row: Row, part: VideoPart, range?: string): Promise<StoredObject> {
+    const key = part === 'video' ? row.mediaKey : part === 'webm' ? row.webmKey : row.posterKey;
     if (!key) throw notFound();
     try {
       return await this.storage.get(
         this.storage.buckets.media,
         key,
-        part === 'video' ? range : undefined,
+        part === 'poster' ? undefined : range,
       );
     } catch (error) {
       if ((error as { name?: string }).name === 'InvalidRange') {
@@ -241,7 +242,7 @@ export class VideoService {
   }
 
   /** Staff: any processed video (the queue, or a reported member's). */
-  async adminOpen(videoId: string, part: 'video' | 'poster', range?: string) {
+  async adminOpen(videoId: string, part: VideoPart, range?: string) {
     const [row] = await this.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
     if (!row || (row.status !== 'review' && row.status !== 'clean')) throw notFound();
     return this.read(row, part, range);
@@ -254,6 +255,10 @@ export class VideoService {
   async decide(staffId: string, videoId: string, decision: VideoDecision): Promise<void> {
     const [row] = await this.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
     if (!row) throw notFound();
+    // Phase 77e: nobody reviews their own video (like reports that involve them).
+    if (row.userId === staffId) {
+      throw new HttpError(403, ErrorCode.Forbidden, 'You cannot review your own video.');
+    }
     const allowedFrom = decision.approve ? ['review'] : ['review', 'clean'];
     if (!allowedFrom.includes(row.status)) {
       throw new HttpError(409, ErrorCode.Conflict, 'This video is not waiting for a decision.');
@@ -268,6 +273,7 @@ export class VideoService {
               rejectReason: decision.reason!,
               mediaKey: null,
               posterKey: null,
+              webmKey: null,
               reviewedBy: staffId,
               reviewedAt: new Date(),
             },
@@ -277,7 +283,7 @@ export class VideoService {
     if (updated.length === 0) {
       throw new HttpError(409, ErrorCode.Conflict, 'This video is not waiting for a decision.');
     }
-    if (!decision.approve) await this.deleteMedia([{ ...row, quarantineKey: null }]);
+    if (!decision.approve) await this.deleteMedia([row], false);
     await audit(this.db, {
       actorId: staffId,
       action: decision.approve ? 'video.approved' : 'video.rejected',

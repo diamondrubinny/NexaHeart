@@ -11,7 +11,7 @@ import type {
 } from '@nexaheart/shared';
 import { SIGNAL_PHOTO_DISTANCE, SIGNAL_REPORT_PREFIX } from '@nexaheart/shared';
 import { audioMediaKey, mediaKey, type Storage } from '@nexaheart/storage';
-import { and, eq, like, notLike, sql } from 'drizzle-orm';
+import { and, eq, inArray, like, notLike, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import type { Scanner } from './clamav.js';
 import { InvalidAudioError, transcodeVoice } from './audio.js';
@@ -350,7 +350,12 @@ export async function processAudio(
  * poster frame checked against banned photos; then it waits for a moderator ('review'). Nothing
  * here makes it visible: only an approval does.
  */
-export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob): Promise<string> {
+export async function processVideo(
+  ctx: JobContext,
+  { videoId }: ProcessVideoJob,
+  /** Phase 77e: on the last attempt, an unexpected failure rejects instead of leaving it stuck. */
+  finalAttempt = false,
+): Promise<string> {
   const { profileVideos } = schema;
   const [row] = await ctx.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
   if (!row || !row.quarantineKey || (row.status !== 'quarantine' && row.status !== 'processing')) {
@@ -361,11 +366,19 @@ export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob
     .set({ status: 'processing' })
     .where(eq(profileVideos.id, videoId));
   const original = await ctx.storage.getBuffer(ctx.storage.buckets.quarantine, row.quarantineKey);
+  // Phase 77e: only while still being processed (a late duplicate run never overrides a decision).
+  const stillProcessing = and(
+    eq(profileVideos.id, videoId),
+    eq(profileVideos.userId, row.userId),
+    inArray(profileVideos.status, ['quarantine', 'processing']),
+  );
   const rejectVideo = async (reason: string) => {
+    // The original goes first: if this fails, the retry still knows where it is.
+    await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey!]);
     await ctx.db
       .update(profileVideos)
       .set({ status: 'rejected', rejectReason: reason, quarantineKey: null })
-      .where(eq(profileVideos.id, videoId));
+      .where(stillProcessing);
     await ctx.db.insert(auditLogs).values({
       actorId: null,
       action: 'video.rejected',
@@ -373,7 +386,6 @@ export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob
       targetId: videoId,
       meta: { reason, owner: row.userId },
     });
-    await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey!]);
     return 'rejected';
   };
 
@@ -394,8 +406,12 @@ export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob
       ffprobe: ctx.ffprobePath,
     });
   } catch (error) {
-    if (!(error instanceof InvalidVideoError)) throw error;
-    return rejectVideo(error.message);
+    if (error instanceof InvalidVideoError) return rejectVideo(error.message);
+    if (finalAttempt) {
+      ctx.log.warn({ videoId, err: error }, 'video failed on its last attempt; rejected');
+      return rejectVideo('undecodable');
+    }
+    throw error;
   }
   // A frame like a photo banned here (phase 21): refused.
   const phash = await perceptualHash(processed.poster);
@@ -403,7 +419,9 @@ export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob
 
   const key = `videos/${row.userId}/${videoId}.mp4`;
   const posterKey = `videos/${row.userId}/${videoId}.jpg`;
+  const webmKey = `videos/${row.userId}/${videoId}.webm`;
   await ctx.storage.put(ctx.storage.buckets.media, key, processed.data, 'video/mp4');
+  await ctx.storage.put(ctx.storage.buckets.media, webmKey, processed.webm, 'video/webm');
   await ctx.storage.put(ctx.storage.buckets.media, posterKey, processed.poster, 'image/jpeg');
   const updated = await ctx.db
     .update(profileVideos)
@@ -411,13 +429,16 @@ export async function processVideo(ctx: JobContext, { videoId }: ProcessVideoJob
       status: 'review',
       mediaKey: key,
       posterKey,
+      webmKey,
       quarantineKey: null,
       durationMs: processed.durationMs,
     })
-    .where(and(eq(profileVideos.id, videoId), eq(profileVideos.userId, row.userId)))
+    .where(stillProcessing)
     .returning({ id: profileVideos.id });
-  // Replaced or deleted meanwhile: drop what we made.
-  if (updated.length === 0) await ctx.storage.delete(ctx.storage.buckets.media, [key, posterKey]);
+  // Replaced, deleted or decided meanwhile: drop what we made.
+  if (updated.length === 0) {
+    await ctx.storage.delete(ctx.storage.buckets.media, [key, posterKey, webmKey]);
+  }
   await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey]);
   return updated.length === 0 ? 'orphaned' : 'review';
 }

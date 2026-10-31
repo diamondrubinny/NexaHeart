@@ -11,7 +11,7 @@ import type { Auth } from '../../auth/auth.js';
 import { currentUser, requireUser } from '../../auth/session.js';
 import { HttpError } from '../../plugins/error-handler.js';
 import { perUserLimit } from '../../plugins/security.js';
-import { parseRange, type VideoService } from './service.js';
+import { parseRange, type VideoPart, type VideoService } from './service.js';
 
 /**
  * Sends a video or poster: private (never kept by shared caches), never sniffed, with byte ranges
@@ -20,21 +20,25 @@ import { parseRange, type VideoService } from './service.js';
 export function sendVideoPart(
   reply: FastifyReply,
   object: StoredObject,
-  part: 'video' | 'poster',
+  part: VideoPart,
   cache: 'private' | 'no-store',
 ) {
   reply
-    .type(part === 'video' ? 'video/mp4' : 'image/jpeg')
+    .type(part === 'video' ? 'video/mp4' : part === 'webm' ? 'video/webm' : 'image/jpeg')
     .header('x-content-type-options', 'nosniff')
     .header('content-disposition', 'inline')
     .header('cache-control', cache === 'private' ? 'private, max-age=300' : 'no-store');
-  if (part === 'video') reply.header('accept-ranges', 'bytes');
+  if (part !== 'poster') reply.header('accept-ranges', 'bytes');
   if (object.contentLength !== undefined) reply.header('content-length', object.contentLength);
   if (object.contentRange) reply.status(206).header('content-range', object.contentRange);
   return reply.send(object.body);
 }
 
 const idParams = z.object({ id: z.uuid() });
+/** `?format=webm`: the WebM rendition, for browsers without H.264. */
+export const videoFormatQuery = z.object({ format: z.enum(['mp4', 'webm']).default('mp4') });
+export const videoPartOf = (part: 'video' | 'poster', format: 'mp4' | 'webm'): VideoPart =>
+  part === 'video' && format === 'webm' ? 'webm' : part;
 
 export const videoRoutes: FastifyPluginAsyncZod<{ auth: Auth; videos: VideoService }> = async (
   app,
@@ -78,16 +82,20 @@ export const videoRoutes: FastifyPluginAsyncZod<{ auth: Auth; videos: VideoServi
   for (const part of ['video', 'poster'] as const) {
     app.get(
       part === 'video' ? '/v1/videos/:id' : '/v1/videos/:id/poster',
-      { config: perUserLimit(600, 60 * 60_000), schema: { params: idParams } },
+      {
+        config: perUserLimit(600, 60 * 60_000),
+        schema: { params: idParams, querystring: videoFormatQuery },
+      },
       async (request, reply) => {
+        const which = videoPartOf(part, request.query.format);
         const object = await videos.open(
           currentUser(request).id,
           request.params.id,
-          part,
+          which,
           parseRange(request.headers.range),
         );
         // Not kept even by the browser: a rejection, block or blur takes effect at once.
-        return sendVideoPart(reply, object, part, 'no-store');
+        return sendVideoPart(reply, object, which, 'no-store');
       },
     );
   }

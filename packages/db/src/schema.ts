@@ -2460,6 +2460,8 @@ export const profileVideos = pgTable('profile_videos', {
   quarantineKey: text('quarantine_key'),
   mediaKey: text('media_key'),
   posterKey: text('poster_key'),
+  /** The WebM rendition, for browsers without H.264. */
+  webmKey: text('webm_key'),
   durationMs: integer('duration_ms'),
   rejectReason: varchar('reject_reason', { length: 32 }),
   reviewedBy: text('reviewed_by').references(() => user.id, { onDelete: 'set null' }),

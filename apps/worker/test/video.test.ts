@@ -99,4 +99,48 @@ describe('video prompts (phase 76h)', () => {
       expect(result.poster.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
     }, 120_000);
   }
+
+  const make = (name: string, args: string[]) => {
+    const out = join(dir, name);
+    execFileSync('ffmpeg', ['-loglevel', 'error', ...args, '-y', out]);
+    return readFileSync(out);
+  };
+
+  it('77e: refuses frames larger than it decodes, before decoding', async () => {
+    const huge = make('huge.mp4', [
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=red:size=4200x64:rate=1:duration=1',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'ultrafast',
+    ]);
+    await expect(transcodeVideo(huge)).rejects.toThrow('too_large');
+    expect(videoArgs('in', 'out', 'mov')).toEqual(
+      expect.arrayContaining(['-codec_whitelist', '-max_pixels', '-threads']),
+    );
+  }, 60_000);
+
+  it('77e: a clip with one frame and longer audio still gets a poster', async () => {
+    const short = make('short.mp4', [
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=blue:size=64x64:rate=1:duration=1',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=duration=6',
+      '-frames:v',
+      '1',
+      '-c:v',
+      'libx264',
+      '-c:a',
+      'aac',
+    ]);
+    const result = await transcodeVideo(short);
+    expect(result.poster.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+  }, 60_000);
 });

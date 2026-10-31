@@ -179,6 +179,11 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
     expect(part.rawPayload.length).toBe(100);
     expect(part.headers['content-range']).toMatch(/^bytes 0-99\/\d+$/);
     expect((await get(dan.cookie, seen.posterUrl)).headers['content-type']).toBe('image/jpeg');
+    // The WebM rendition, for browsers without H.264.
+    const webm = await get(dan.cookie, `${seen.url}?format=webm`, { range: 'bytes=0-3' });
+    expect(webm.statusCode).toBe(206);
+    expect(webm.headers['content-type']).toBe('video/webm');
+    expect(webm.rawPayload).toEqual(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
 
     // Blocked: gone, both from the profile and the file.
     await api(ctx, noa, 'POST', '/v1/blocks', { userId: dan.id });
@@ -203,7 +208,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       rejectReason: 'nudity',
       url: null,
     });
-    expect(ctx.jobs.delete.at(-1)!.mediaKeys).toHaveLength(2);
+    expect(ctx.jobs.delete.at(-1)!.mediaKeys).toHaveLength(3);
     expect((await decide(video.id, { approve: true })).statusCode).toBe(409);
     expect((await get(noa.cookie, `/v1/videos/${video.id}`)).statusCode).toBe(404);
   });
@@ -248,5 +253,51 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       (await ctx.services.dbHandle.pool.query('SELECT 1 FROM profile_videos')).rows,
     ).toHaveLength(0);
     expect(ctx.jobs.delete.at(-1)!.mediaKeys.join(' ')).toContain(video.id);
+  });
+
+  it('77e: nobody reviews their own video; a late worker run never undoes a decision', async () => {
+    const own = await moderator();
+    const {
+      rows: [me],
+    } = await ctx.services.dbHandle.pool.query(
+      `SELECT id FROM "user" WHERE role = 'moderator' ORDER BY created_at DESC LIMIT 1`,
+    );
+    const { rows } = await ctx.services.dbHandle.pool.query(
+      `INSERT INTO profile_videos (user_id, prompt_key, status, media_key, poster_key, duration_ms)
+       VALUES ($1, 'perfect_sunday', 'review', 'videos/x.mp4', 'videos/x.jpg', 1000) RETURNING id`,
+      [me.id],
+    );
+    const selfDecision = await ctx.app.inject({
+      method: 'POST',
+      url: `/v1/admin/videos/${rows[0].id}/decision`,
+      headers: { cookie: own },
+      payload: { approve: true },
+    });
+    expect(selfDecision.statusCode).toBe(403);
+
+    // Noa's video: processed, rejected; then a duplicate job runs again.
+    const video = (await upload(noa, clip)).json().video;
+    const job = ctx.jobs.video.at(-1)!;
+    await processVideo(worker, job);
+    expect((await decide(video.id, { approve: false, reason: 'offensive' })).statusCode).toBe(204);
+    await ctx.services.dbHandle.pool.query(
+      `UPDATE profile_videos SET quarantine_key = $2 WHERE id = $1`,
+      [video.id, `videos/${noa.id}/${video.id}`],
+    );
+    expect(await processVideo(worker, job)).toBe('skipped');
+    expect((await api(ctx, noa, 'GET', '/v1/me/video')).json().video.status).toBe('rejected');
+  });
+
+  it('77e: a server-side failure is retried; on the last attempt the video is refused', async () => {
+    await upload(noa, clip);
+    const job = ctx.jobs.video.at(-1)!;
+    const broken = { ...worker, ffprobePath: '/nonexistent/ffprobe' };
+    await expect(processVideo(broken, job)).rejects.toThrow();
+    expect((await api(ctx, noa, 'GET', '/v1/me/video')).json().video.status).toBe('processing');
+    expect(await processVideo(broken, job, true)).toBe('rejected');
+    expect((await api(ctx, noa, 'GET', '/v1/me/video')).json().video).toMatchObject({
+      status: 'rejected',
+      rejectReason: 'undecodable',
+    });
   });
 });

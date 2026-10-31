@@ -880,16 +880,19 @@ export class MeService {
     // Phase 76h: the video prompt and its poster.
     const videos = await this.db
       .select({
-        quarantineKey: schema.profileVideos.quarantineKey,
+        id: schema.profileVideos.id,
         mediaKey: schema.profileVideos.mediaKey,
         posterKey: schema.profileVideos.posterKey,
+        webmKey: schema.profileVideos.webmKey,
       })
       .from(schema.profileVideos)
       .where(eq(schema.profileVideos.userId, userId));
     keys.push(
       ...videos.flatMap((v) => [
-        { quarantineKey: v.quarantineKey, mediaKey: v.mediaKey },
+        // Phase 77e: the quarantine key follows from the ids, whatever the column says.
+        { quarantineKey: `videos/${userId}/${v.id}`, mediaKey: v.mediaKey },
         { quarantineKey: null, mediaKey: v.posterKey },
+        { quarantineKey: null, mediaKey: v.webmKey },
       ]),
     );
     await this.db.transaction(async (tx) => {
