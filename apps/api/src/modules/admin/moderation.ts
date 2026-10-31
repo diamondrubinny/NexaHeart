@@ -207,6 +207,20 @@ export class ModerationService {
       .select({ question: schema.profilePolls.question, answers: schema.profilePolls.answers })
       .from(schema.profilePolls)
       .where(eq(schema.profilePolls.userId, report!.reportedId));
+    // Phase 76h: the video prompt (staff open it through /v1/admin/videos/:id/file).
+    const [videoRow] = await this.db
+      .select({
+        id: schema.profileVideos.id,
+        promptKey: schema.profileVideos.promptKey,
+        status: schema.profileVideos.status,
+      })
+      .from(schema.profileVideos)
+      .where(
+        and(
+          eq(schema.profileVideos.userId, report!.reportedId),
+          inArray(schema.profileVideos.status, ['review', 'clean']),
+        ),
+      );
     const photoRows = await this.db
       .select({ id: photos.id })
       .from(photos)
@@ -273,6 +287,13 @@ export class ModerationService {
             prompts: promptRows,
             anthem: anthemRow ?? null,
             poll: pollRow ?? null,
+            video: videoRow
+              ? {
+                  ...videoRow,
+                  url: `/v1/admin/videos/${videoRow.id}/file`,
+                  posterUrl: `/v1/admin/videos/${videoRow.id}/poster`,
+                }
+              : null,
             photoIds: photoRows.map((p) => p.id),
             verified: profile.verifiedAt !== null,
             memberSince: target!.createdAt.toISOString(),

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { anthemSchema } from './anthem.js';
+import { videoPromptSchema } from './video.js';
 import { POLL_ANSWERS_MAX, profilePollSchema } from './poll.js';
 import { matchModeSchema, publicTakeSchema } from './friends.js';
 import { z } from 'zod';
@@ -105,6 +106,8 @@ export const publicProfileSchema = z.object({
   /** Interests, lifestyle and the opening question (phase 19); null until filled in. */
   about: aboutSchema.nullable(),
   voicePrompt: voicePromptSchema.nullable(),
+  /** Phase 76h: an approved video prompt (not while photos are blurred). Never federated. */
+  videoPrompt: videoPromptSchema.nullable().optional(),
   /** Phase 76g: the member's song. Optional: partner cards never carry it. */
   anthem: anthemSchema.nullable().optional(),
   /** Phase 76d: the member's prompt poll. Optional: partner cards never carry it. */

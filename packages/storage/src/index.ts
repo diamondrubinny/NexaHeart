@@ -25,12 +25,15 @@ export interface StoredObject {
   body: Readable;
   contentType: string | undefined;
   contentLength: number | undefined;
+  /** Set when a byte range was asked for (`bytes start-end/total`). */
+  contentRange?: string | undefined;
 }
 
 export interface Storage {
   readonly buckets: { quarantine: string; media: string };
   put(bucket: string, key: string, body: Buffer, contentType: string): Promise<void>;
-  get(bucket: string, key: string): Promise<StoredObject>;
+  /** `range` is an HTTP Range value (`bytes=0-1023`), validated by the caller. */
+  get(bucket: string, key: string, range?: string): Promise<StoredObject>;
   getBuffer(bucket: string, key: string): Promise<Buffer>;
   /** Deletes keys in batches; missing keys are ignored. */
   delete(bucket: string, keys: string[]): Promise<void>;
@@ -53,13 +56,16 @@ export function createStorage(config: StorageConfig): Storage {
   });
   const buckets = { quarantine: config.quarantineBucket, media: config.mediaBucket };
 
-  async function get(bucket: string, key: string): Promise<StoredObject> {
-    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  async function get(bucket: string, key: string, range?: string): Promise<StoredObject> {
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key, ...(range ? { Range: range } : {}) }),
+    );
     if (!res.Body) throw new Error('Empty object body');
     return {
       body: res.Body as Readable,
       contentType: res.ContentType,
       contentLength: res.ContentLength,
+      contentRange: res.ContentRange,
     };
   }
 

@@ -51,6 +51,8 @@ import type {
   OrganizerRow,
   PendingProfile,
   ReviewDecision,
+  AdminVideo,
+  VideoDecision,
 } from '@nexaheart/shared';
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
@@ -195,6 +197,10 @@ export const api = {
   uploadLogo: (file: File) => upload('/v1/admin/instance/logo', file),
   removeLogo: () => request<{ ok: true }>('DELETE', '/v1/admin/instance/logo'),
   venues: () => request<{ venues: AdminVenue[] }>('GET', '/v1/admin/venues'),
+  // Phase 76h: video prompts waiting for review.
+  videos: () => request<{ videos: AdminVideo[] }>('GET', '/v1/admin/videos'),
+  decideVideo: (id: string, decision: VideoDecision) =>
+    request<void>('POST', `/v1/admin/videos/${encodeURIComponent(id)}/decision`, decision),
   // Phase 76e: interest groups.
   groups: () => request<{ groups: Group[] }>('GET', '/v1/admin/groups'),
   createGroup: (input: GroupInput) => request<Group>('POST', '/v1/admin/groups', input),

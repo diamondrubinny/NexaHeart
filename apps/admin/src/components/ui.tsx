@@ -113,6 +113,49 @@ export function ProtectedImage({
   return <img src={url} alt={alt} className={className} />;
 }
 
+/**
+ * Phase 76h: a private video (review queue, report), loaded with the session cookie into a local
+ * object URL. Loaded only when asked, never autoplayed; starts muted.
+ */
+export function ProtectedVideo({ path, label }: { path: string; label: string }) {
+  const [url, setUrl] = useState<string>();
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => () => void (url && URL.revokeObjectURL(url)), [url]);
+  const load = () => {
+    if (loading) return;
+    setLoading(true);
+    // Browsers without H.264 (some Linux builds) get the WebM rendition.
+    const h264 = document
+      .createElement('video')
+      .canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+    fetchImage(h264 ? path : `${path}?format=webm`)
+      .then(setUrl)
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  };
+  if (failed) return <p className="muted">×</p>;
+  if (!url) {
+    return (
+      <button type="button" className="button small" onClick={load} aria-busy={loading}>
+        ▶ {label}
+      </button>
+    );
+  }
+  return (
+    <video
+      src={url}
+      controls
+      muted
+      playsInline
+      aria-label={label}
+      className="review-video"
+      controlsList="nodownload"
+      disablePictureInPicture
+    />
+  );
+}
+
 /** Private audio (voice evidence), loaded with the session cookie into a local object URL. */
 export function ProtectedAudio({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string>();

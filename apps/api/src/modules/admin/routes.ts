@@ -68,6 +68,8 @@ import {
   groupInputSchema,
   groupSchema,
   groupUpdateSchema,
+  adminVideoSchema,
+  videoDecisionSchema,
 } from '@nexaheart/shared';
 import type { Storage, StoredObject } from '@nexaheart/storage';
 import type { FastifyReply } from 'fastify';
@@ -96,6 +98,8 @@ import type { AppealService } from '../safety/appeals.js';
 import type { ComplianceService } from '../compliance/service.js';
 import type { IntroductionService } from '../introductions/service.js';
 import type { ProfileReviewService } from './review.js';
+import { sendVideoPart, videoFormatQuery, videoPartOf } from '../video/routes.js';
+import { parseRange, type VideoService } from '../video/service.js';
 
 const ok = z.object({ ok: z.literal(true) });
 const idParams = z.object({ id: z.uuid() });
@@ -136,6 +140,8 @@ export const adminRoutes: FastifyPluginAsyncZod<{
   organizers?: OrganizerService;
   /** Phase 76e. */
   groups?: GroupService;
+  /** Phase 76h: video prompts waiting for review. */
+  videos?: VideoService;
 }> = async (
   app,
   {
@@ -159,6 +165,7 @@ export const adminRoutes: FastifyPluginAsyncZod<{
     profileReview,
     organizers,
     groups,
+    videos,
   },
 ) => {
   await app.register(multipart, {
@@ -763,6 +770,41 @@ export const adminRoutes: FastifyPluginAsyncZod<{
       return venues.update(staff.id, request.params.id, request.body);
     },
   );
+
+  // Video prompts (phase 76h): every staff member reviews them (approve, or reject with a reason).
+  if (videos) {
+    app.get(
+      '/v1/admin/videos',
+      { schema: { response: { 200: z.object({ videos: z.array(adminVideoSchema) }) } } },
+      async () => ({ videos: await videos.queue() }),
+    );
+    for (const part of ['video', 'poster'] as const) {
+      app.get(
+        part === 'video' ? '/v1/admin/videos/:id/file' : '/v1/admin/videos/:id/poster',
+        { schema: { params: idParams, querystring: videoFormatQuery } },
+        async (request, reply) => {
+          const which = videoPartOf(part, request.query.format);
+          const object = await videos.adminOpen(
+            request.params.id,
+            which,
+            parseRange(request.headers.range),
+          );
+          return sendVideoPart(reply, object, which, 'no-store');
+        },
+      );
+    }
+    app.post(
+      '/v1/admin/videos/:id/decision',
+      {
+        config: perUserLimit(600, 60 * 60 * 1000),
+        schema: { params: idParams, body: videoDecisionSchema, response: { 204: z.null() } },
+      },
+      async (request, reply) => {
+        await videos.decide(currentUser(request).id, request.params.id, request.body);
+        return reply.status(204).send(null);
+      },
+    );
+  }
 
   // Interest groups (phase 76e): every staff member sees them and their posts (to moderate); only
   // admins open, edit or archive a group.

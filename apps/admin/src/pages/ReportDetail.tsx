@@ -21,6 +21,7 @@ import {
   Loading,
   ProtectedAudio,
   ProtectedImage,
+  ProtectedVideo,
 } from '../components/ui';
 
 export function ReportDetail({ id, staff }: { id: string; staff: StaffMe }) {
@@ -228,6 +229,10 @@ export function ReportDetail({ id, staff }: { id: string; staff: StaffMe }) {
                 <p className="user-text" dir="auto">
                   📊 {t.detail.poll}: {profile.poll.question} ({profile.poll.answers.join(' / ')})
                 </p>
+              ) : null}
+              {/* Phase 76h: the member's video prompt (waiting for review or approved). */}
+              {profile.video ? (
+                <ProtectedVideo path={profile.video.url} label={`🎬 ${t.detail.video}`} />
               ) : null}
               <h3>{t.detail.photos}</h3>
               <div className="photo-grid">

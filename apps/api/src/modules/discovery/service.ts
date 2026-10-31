@@ -1381,6 +1381,34 @@ export class DiscoveryService {
           .where(inArray(schema.profileAnthems.userId, ids))
       ).map(({ userId, ...song }) => [userId, song]),
     );
+    // Phase 76h: approved video prompts.
+    const videos = new Map(
+      (
+        await this.db
+          .select({
+            id: schema.profileVideos.id,
+            userId: schema.profileVideos.userId,
+            promptKey: schema.profileVideos.promptKey,
+            durationMs: schema.profileVideos.durationMs,
+          })
+          .from(schema.profileVideos)
+          .where(
+            and(
+              inArray(schema.profileVideos.userId, ids),
+              eq(schema.profileVideos.status, 'clean'),
+            ),
+          )
+      ).map((v) => [
+        v.userId,
+        {
+          id: v.id,
+          promptKey: v.promptKey as PromptKey,
+          url: `/v1/videos/${v.id}`,
+          posterUrl: `/v1/videos/${v.id}/poster`,
+          durationMs: v.durationMs ?? 0,
+        },
+      ]),
+    );
     // Phase 76d: prompt polls.
     const polls = new Map(
       (
@@ -1442,6 +1470,8 @@ export class DiscoveryService {
           voicePrompt: toVoicePrompt(aboutById.get(p.userId), cleanVoice),
           poll: polls.get(p.userId) ?? null,
           anthem: anthems.get(p.userId) ?? null,
+          // A video shows the face: hidden while this viewer sees the photos blurred (phase 66a).
+          videoPrompt: blurred.has(p.userId) ? null : (videos.get(p.userId) ?? null),
           accessNeeds: shownAccessNeeds(aboutById.get(p.userId)),
           identity: identityFor(p.userId),
           // Phase 66b: matches only (not the member's own preview, which shows what strangers see).

@@ -24,6 +24,7 @@ import { dateRoutes } from './modules/dates/routes.js';
 import { gameRoutes } from './modules/game/routes.js';
 import { pollRoutes } from './modules/poll/routes.js';
 import { anthemRoutes } from './modules/anthem/routes.js';
+import { videoRoutes } from './modules/video/routes.js';
 import { groupRoutes } from './modules/groups/routes.js';
 import { eventRoutes } from './modules/events/routes.js';
 import { speedRoutes } from './modules/speed/routes.js';
@@ -165,6 +166,7 @@ export async function buildApp(env: Env, deps: AppDependencies): Promise<Fastify
       profileReview: services.profileReview,
       organizers: services.organizers,
       groups: services.groups,
+      videos: services.videos,
     });
     await typed.register(chaperoneRoutes, { auth: services.auth, chaperones: services.chaperones });
     await typed.register(resumePublicRoutes, { resume: services.resume });
@@ -220,6 +222,7 @@ export async function buildApp(env: Env, deps: AppDependencies): Promise<Fastify
     await typed.register(pollRoutes, { auth: services.auth, db: services.dbHandle.db });
     await typed.register(anthemRoutes, { auth: services.auth, db: services.dbHandle.db });
     await typed.register(groupRoutes, { auth: services.auth, groups: services.groups });
+    await typed.register(videoRoutes, { auth: services.auth, videos: services.videos });
     await typed.register(eventRoutes, {
       auth: services.auth,
       events: services.events,

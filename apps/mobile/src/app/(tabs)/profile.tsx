@@ -115,6 +115,12 @@ function ProfileContent() {
           label={t('interview.open')}
           onPress={() => router.push('/interview')}
         />
+        {/* Phase 76h: a video prompt, shown after review. */}
+        <Button
+          variant="secondary"
+          label={`🎬 ${t('video.open')}`}
+          onPress={() => router.push('/video')}
+        />
         {/* Phase 76g: my song. */}
         <Button
           variant="secondary"
