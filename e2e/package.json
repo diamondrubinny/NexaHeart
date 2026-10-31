@@ -50,6 +50,7 @@
     "lenses": "tsx lenses.ts",
     "game": "tsx game.ts",
     "poll": "tsx poll.ts",
+    "groups": "tsx groups.ts",
     "devices": "tsx devices.ts",
     "reactions-undo": "tsx reactions-undo.ts",
     "chat-control": "tsx chat-control.ts",

@@ -180,6 +180,12 @@ function ProfileContent() {
           label={t('events.profileButton')}
           onPress={() => router.push('/events')}
         />
+        {/* Phase 76e: interest groups. */}
+        <Button
+          variant="secondary"
+          label={`👥 ${t('groups.open')}`}
+          onPress={() => router.push('/groups')}
+        />
         <Button
           variant="secondary"
           label={t('checkin.title')}

@@ -106,6 +106,26 @@ export class ReportService {
           .orderBy(messages.createdAt)
       : [];
 
+    // Phase 76e: the target's posts in groups the reporter is in (copied, never from the client).
+    const groupPostIds = input.groupPostIds ?? [];
+    const groupEvidence =
+      groupPostIds.length > 0
+        ? (
+            await this.db.execute<{
+              body: string;
+              flags: string[];
+              created_at: Date;
+              group_name: string;
+            }>(sql`
+            SELECT gp.body, gp.flags, gp.created_at, g.name AS group_name
+            FROM group_posts gp JOIN interest_groups g ON g.id = gp.group_id
+            WHERE gp.id = ANY(${sql.param(groupPostIds)}::uuid[]) AND gp.author_id = ${targetId}
+              AND EXISTS (SELECT 1 FROM group_members gm
+                          WHERE gm.group_id = gp.group_id AND gm.user_id = ${reporterId})
+            ORDER BY gp.created_at`)
+          ).rows
+        : [];
+
     const priority = reportPriority(input.category);
     const reportId = await this.db.transaction(async (tx) => {
       const inserted = await tx
@@ -175,13 +195,31 @@ export class ReportService {
           sentAt: m.createdAt,
         });
       }
+      for (const post of groupEvidence) {
+        rows.push({
+          id: randomUUID(),
+          reportId: id,
+          fromReported: true,
+          kind: 'text' as const,
+          body: `Group post (${post.group_name}): ${post.body}`.slice(0, 2000),
+          mediaKey: null,
+          durationMs: null,
+          flags: post.flags,
+          unsent: false,
+          sentAt: new Date(post.created_at),
+        });
+      }
       if (rows.length > 0) await tx.insert(reportEvidence).values(rows);
       await audit(tx, {
         actorId: reporterId,
         action: 'report.created',
         targetType: 'report',
         targetId: id,
-        meta: { category: input.category, priority, evidence: evidence.length },
+        meta: {
+          category: input.category,
+          priority,
+          evidence: evidence.length + groupEvidence.length,
+        },
       });
       return id;
     });

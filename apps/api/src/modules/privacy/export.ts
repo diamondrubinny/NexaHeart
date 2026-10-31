@@ -236,6 +236,18 @@ export async function exportMemberData(
     .from(t.messages)
     .where(eq(t.messages.senderId, userId))
     .orderBy(asc(t.messages.createdAt));
+  // 76e: my interest groups and my posts there (not other people's).
+  const groupsJoined = await db
+    .select({ group: t.interestGroups.name, joinedAt: t.groupMembers.joinedAt })
+    .from(t.groupMembers)
+    .innerJoin(t.interestGroups, eq(t.interestGroups.id, t.groupMembers.groupId))
+    .where(eq(t.groupMembers.userId, userId));
+  const groupPostsMine = await db
+    .select({ group: t.interestGroups.name, body: t.groupPosts.body, at: t.groupPosts.createdAt })
+    .from(t.groupPosts)
+    .innerJoin(t.interestGroups, eq(t.interestGroups.id, t.groupPosts.groupId))
+    .where(eq(t.groupPosts.authorId, userId))
+    .orderBy(asc(t.groupPosts.createdAt));
   // 76d: my prompt poll.
   const [poll] = await db
     .select({ question: t.profilePolls.question, answers: t.profilePolls.answers })
@@ -736,6 +748,8 @@ export async function exportMemberData(
     messagesYouSent: sent.map((m) => ({ ...m, at: iso(m.at), unsentAt: iso(m.unsentAt) })),
     questionGameAnswers: gameAnswers.map((g) => ({ ...g, at: iso(g.at) })),
     promptPoll: poll ?? null,
+    interestGroups: groupsJoined.map((g) => ({ ...g, joinedAt: iso(g.joinedAt) })),
+    groupPosts: groupPostsMine.map((p) => ({ ...p, at: iso(p.at) })),
     blocks: blocks.map((b) => ({ ...b, at: iso(b.at) })),
     reportsYouFiled: reportsFiled.map((r) => ({ ...r, at: iso(r.at) })),
     moderationAffectingYou: moderation.map((m) => ({

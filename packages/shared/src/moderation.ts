@@ -45,6 +45,8 @@ export const reportInputSchema = z.object({
   details: z.string().trim().max(MAX_REPORT_DETAILS).optional(),
   /** Messages from the reporter's own chat with the target; copied server-side as evidence. */
   messageIds: z.array(z.uuid()).max(MAX_REPORT_EVIDENCE).default([]),
+  /** Phase 76e: posts by the target in groups the reporter is in; copied server-side too. */
+  groupPostIds: z.array(z.uuid()).max(MAX_REPORT_EVIDENCE).default([]),
   /** Reporting blocks the person too, unless the reporter opts out. */
   block: z.boolean().default(true),
 });

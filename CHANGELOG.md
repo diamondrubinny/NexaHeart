@@ -6,6 +6,16 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **Interest groups**: groups the community's admins open around a shared interest. Members join,
+  see each other and a board; posts are harm-checked like messages and can be reported (the post
+  is copied as evidence). Membership never shows on profiles and is never sent to partner
+  communities. Dashboard → Groups to open, close and moderate.
+
+### Fixed
+
+- The loading spinner had no accessible name (and an `aria-label` on a plain container): the
+  name is now on the spinner itself (axe `aria-progressbar-name`, `aria-prohibited-attr`).
+
 - **Prompt polls**: a question with 2-3 answers on your profile, in your own words. Someone who
   likes your profile can pick one, and the pick arrives with the like ("Picked: …"). No counts and
   no results are stored or shown.

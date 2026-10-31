@@ -2321,3 +2321,58 @@ export const profilePolls = pgTable('profile_polls', {
   answers: text('answers').array().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Phase 76e: interest groups the community's admins open. Membership is personal data: never on
+ * the profile, never federated; deleted with the account.
+ */
+export const interestGroups = pgTable('interest_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 40 }).notNull(),
+  about: varchar('about', { length: 300 }).notNull().default(''),
+  emoji: varchar('emoji', { length: 8 }).notNull().default('💬'),
+  capacity: integer('capacity').notNull().default(500),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const groupMembers = pgTable(
+  'group_members',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => interestGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userId] }),
+    index('group_members_user_idx').on(t.userId),
+  ],
+);
+
+/** A group's board. Deleted with the author's account and with the group. */
+export const groupPosts = pgTable(
+  'group_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => interestGroups.id, { onDelete: 'cascade' }),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    body: varchar('body', { length: 500 }).notNull(),
+    flags: text('flags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Removed by the admins (kept 30 days for moderation, then purged; never shown). */
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('group_posts_board_idx').on(t.groupId, t.createdAt)],
+);

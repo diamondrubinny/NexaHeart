@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import type {
+  AdminGroupPost,
   DiscoveryLens,
+  Group,
+  GroupInput,
+  GroupUpdate,
   SystemStatus,
   UpdateStatusView,
   AdminCheckIn,
@@ -188,6 +192,15 @@ export const api = {
   uploadLogo: (file: File) => upload('/v1/admin/instance/logo', file),
   removeLogo: () => request<{ ok: true }>('DELETE', '/v1/admin/instance/logo'),
   venues: () => request<{ venues: AdminVenue[] }>('GET', '/v1/admin/venues'),
+  // Phase 76e: interest groups.
+  groups: () => request<{ groups: Group[] }>('GET', '/v1/admin/groups'),
+  createGroup: (input: GroupInput) => request<Group>('POST', '/v1/admin/groups', input),
+  updateGroup: (id: string, patch: GroupUpdate) =>
+    request<Group>('PATCH', `/v1/admin/groups/${encodeURIComponent(id)}`, patch),
+  groupPosts: (id: string) =>
+    request<{ posts: AdminGroupPost[] }>('GET', `/v1/admin/groups/${encodeURIComponent(id)}/posts`),
+  removeGroupPost: (id: string) =>
+    request<void>('POST', `/v1/admin/group-posts/${encodeURIComponent(id)}/remove`),
   invites: () => request<{ invites: Invite[] }>('GET', '/v1/admin/invites'),
   createInvite: (input: CreateInviteInput) => request<Invite>('POST', '/v1/admin/invites', input),
   revokeInvite: (id: string) =>
