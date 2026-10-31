@@ -131,6 +131,9 @@ const en = {
       same_goal: 'The same goal',
       shows_up: 'Shows up to dates and events',
     },
+    memberGroups: 'Members may propose groups',
+    memberGroupsHelp:
+      'A member suggests a group; it opens only after an admin approves it in Groups. The member hosts it and may remove posts in it (recorded).',
     chatGame: 'The question game in chat',
     chatGameHelp:
       'Either person can start a light question from a fixed list; neither answer shows until both answered. No AI.',
@@ -659,6 +662,12 @@ const en = {
   },
   groups: {
     nav: 'Groups',
+    pending: 'Waiting for approval',
+    approve: 'Approve',
+    decline: 'Decline',
+    approved: '“{{name}}” is open; its host is its first member.',
+    declined: 'The proposal “{{name}}” was declined and deleted.',
+    hostedBy: 'Hosted by {{name}}',
     title: 'Interest groups',
     intro:
       'Groups members can join around a shared interest. Members see each other and a board; nobody outside a group sees who is in it. Every staff member can read the posts to moderate them; only admins open or close a group.',
@@ -1321,6 +1330,9 @@ const he: Messages = {
       same_goal: 'אותה מטרה',
       shows_up: 'מגיעים לדייטים ולאירועים',
     },
+    memberGroups: 'חברי הקהילה יכולים להציע קבוצות',
+    memberGroupsHelp:
+      'חבר או חברה בקהילה מציעים קבוצה, והיא נפתחת רק אחרי אישור של אדמין בעמוד הקבוצות. מי שהציע מנהל אותה ויכול להסיר בה פוסטים (נרשם ביומן).',
     chatGame: 'משחק שאלות בצ׳אט',
     chatGameHelp:
       'כל צד יכול לפתוח שאלה קלילה מתוך רשימה קבועה, ואף תשובה לא מוצגת עד ששני הצדדים ענו. בלי AI.',
@@ -1836,6 +1848,12 @@ const he: Messages = {
   },
   groups: {
     nav: 'קבוצות',
+    pending: 'מחכה לאישור',
+    approve: 'אישור',
+    decline: 'דחייה',
+    approved: 'הקבוצה „{{name}}” נפתחה, ומי שהציע אותה הוא החבר הראשון בה.',
+    declined: 'ההצעה „{{name}}” נדחתה ונמחקה.',
+    hostedBy: 'בניהול: {{name}}',
     title: 'קבוצות עניין',
     intro:
       'קבוצות שחברי הקהילה יכולים להצטרף אליהן סביב תחום עניין משותף. החברים רואים זה את זה ולוח משותף, ומי שמחוץ לקבוצה לא רואה מי חבר בה. כל צוות המודרציה יכול לקרוא את הפוסטים, ורק אדמינים פותחים או סוגרים קבוצה.',

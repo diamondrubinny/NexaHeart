@@ -10,6 +10,8 @@ import { Loading } from '../../components/Loading';
 import { RequireSession } from '../../components/RequireSession';
 import { Screen } from '../../components/Screen';
 import { useGroups } from '../../lib/group-queries';
+import { useInstance } from '../../lib/queries';
+import { Button } from '../../components/Button';
 import { useKeyboardMode } from '../../lib/focus-visible';
 import { focusRing, radius, spacing, useColors } from '../../lib/theme';
 
@@ -19,10 +21,19 @@ function GroupsScreen() {
   const colors = useColors();
   const groups = useGroups();
   const keyboard = useKeyboardMode();
+  // Phase 76f: members may propose a group when the community allows it.
+  const canPropose = Boolean(useInstance().data?.community.memberGroups);
   if (groups.isPending) return <Loading />;
   return (
     <Screen back title={t('groups.title')}>
       <AppText variant="body">{t('groups.intro')}</AppText>
+      {canPropose ? (
+        <Button
+          variant="secondary"
+          label={t('groups.propose')}
+          onPress={() => router.push('/groups/propose')}
+        />
+      ) : null}
       {groups.error ? <Banner tone="error" message={t('common.genericError')} /> : null}
       {groups.data && groups.data.length === 0 ? (
         <AppText variant="body" tone="muted">
@@ -54,6 +65,8 @@ function GroupsScreen() {
                 {t('groups.memberCount', { count: g.members })}
                 {g.joined ? ` · ✓ ${t('groups.joined')}` : ''}
                 {g.archived ? ` · ${t('groups.closed')}` : ''}
+                {g.status === 'pending' ? ` · ${t('groups.pending')}` : ''}
+                {g.hosting ? ` · ${t('groups.youHost')}` : ''}
               </AppText>
             </Pressable>
           </View>

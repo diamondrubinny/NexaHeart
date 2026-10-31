@@ -69,6 +69,7 @@ export interface AdminInstanceSettings {
   shareTrustSignals: boolean;
   weeklyRose: boolean;
   chatGame: boolean;
+  memberGroups: boolean;
   discoveryLenses: DiscoveryLens[];
   communityCountry: string | null;
   introductionOrder: IntroductionOrder;
@@ -157,6 +158,7 @@ export class InstanceService {
         riskCountries: row?.riskCountries ?? [],
         lenses: row?.discoveryLenses ?? [...discoveryLenses],
         chatGame: row?.chatGame ?? true,
+        memberGroups: row?.memberGroups ?? false,
         join: {
           minAge: Math.max(MIN_AGE, row?.joinMinAge ?? MIN_AGE),
           maxAge: row?.joinMaxAge ?? null,
@@ -242,6 +244,7 @@ export class InstanceService {
       shareTrustSignals: row?.shareTrustSignals ?? false,
       weeklyRose: row?.weeklyRose ?? true,
       chatGame: row?.chatGame ?? true,
+      memberGroups: row?.memberGroups ?? false,
       discoveryLenses: (row?.discoveryLenses ?? [...discoveryLenses]).filter(
         (l): l is DiscoveryLens => (discoveryLenses as readonly string[]).includes(l),
       ),

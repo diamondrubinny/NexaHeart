@@ -6,6 +6,12 @@ All notable changes to NexaHeart. Versions follow [Semantic Versioning](https://
 
 ### Added
 
+- **Groups members propose, and Secret Crush in a group**: when the community allows it, a member
+  proposes a group; it opens once an admin approves it, and the member hosts it (may remove posts
+  in it, audited). In a group, mark up to 3 people as a secret crush: nobody is told, unless they
+  mark you too, and then you match. One-sided crushes expire after 30 days, and end on leaving or
+  blocking.
+
 - **Interest groups**: groups the community's admins open around a shared interest. Members join,
   see each other and a board; posts are harm-checked like messages and can be reported (the post
   is copied as evidence). Membership never shows on profiles and is never sent to partner

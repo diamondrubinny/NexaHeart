@@ -9,6 +9,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '../../components/AppText';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
+import { Checkbox } from '../../components/Choice';
 import { Loading } from '../../components/Loading';
 import { RemoteImage } from '../../components/RemoteImage';
 import { RequireSession } from '../../components/RequireSession';
@@ -16,7 +17,9 @@ import { Screen } from '../../components/Screen';
 import { TextField } from '../../components/TextField';
 import { ApiRequestError } from '../../lib/api';
 import {
+  useCrush,
   useDeleteGroupPost,
+  useHostRemovePost,
   useGroup,
   useGroupPosts,
   useJoinGroup,
@@ -43,6 +46,9 @@ function GroupScreen() {
   const leave = useLeaveGroup(id);
   const write = usePostToGroup(id);
   const remove = useDeleteGroupPost(id);
+  const hostRemove = useHostRemovePost(id);
+  const crush = useCrush(id);
+  const [mutual, setMutual] = useState<{ name: string; matchId: string }>();
   const [body, setBody] = useState('');
   const [error, setError] = useState<string>();
 
@@ -100,6 +106,15 @@ function GroupScreen() {
       <AppText variant="body" userContent selectable>
         {post.body}
       </AppText>
+      {g.hosting && !post.mine ? (
+        <Button
+          variant="dangerGhost"
+          label={t('groups.hostRemove')}
+          hint={post.author.displayName}
+          loading={hostRemove.isPending && hostRemove.variables === post.id}
+          onPress={() => hostRemove.mutate(post.id)}
+        />
+      ) : null}
       {post.mine ? (
         <Button
           variant="dangerGhost"
@@ -133,10 +148,12 @@ function GroupScreen() {
       <AppText variant="caption" tone="muted">
         {t('groups.memberCount', { count: g.members })}
         {g.archived ? ` · ${t('groups.closed')}` : ''}
+        {g.host ? ` · ${t('groups.hostedBy', { name: g.host.displayName })}` : ''}
       </AppText>
+      {g.status === 'pending' ? <Banner tone="info" message={t('groups.pendingNote')} /> : null}
       {error ? <Banner tone="error" message={error} /> : null}
 
-      {!g.joined ? (
+      {g.status === 'pending' ? null : !g.joined ? (
         <>
           <AppText variant="caption" tone="muted">
             {t('groups.privacy')}
@@ -159,7 +176,47 @@ function GroupScreen() {
               <AppText variant="heading" accessibilityRole="header">
                 {t('groups.members')}
               </AppText>
-              <AppText variant="body">{members.map((m) => m.displayName).join(', ')}</AppText>
+              {/* Phase 76f: a secret crush on someone here; only a mutual one ever shows. */}
+              <AppText variant="caption" tone="muted">
+                {t('groups.crushIntro', { left: group.data.crushesLeft })}
+              </AppText>
+              {mutual ? (
+                <View accessibilityLiveRegion="polite" aria-live="polite" testID="crush-mutual">
+                  <Banner tone="success" message={t('groups.crushMutual', { name: mutual.name })} />
+                  <Button
+                    label={t('groups.openChat')}
+                    onPress={() => router.push(`/chat/${mutual.matchId}`)}
+                  />
+                </View>
+              ) : null}
+              <View role="list" style={styles.posts}>
+                {members.map((m) => (
+                  <View key={m.userId} role="listitem">
+                    <Checkbox
+                      label={`🤫 ${m.displayName}${g.host?.userId === m.userId ? ` · ${t('groups.host')}` : ''}`}
+                      hint={t('groups.crushHint', { name: m.displayName })}
+                      checked={group.data.myCrushes.includes(m.userId)}
+                      onChange={(on) =>
+                        crush.mutate(
+                          { userId: m.userId, on },
+                          {
+                            onSuccess: (r) => {
+                              setError(undefined);
+                              if (r.matchId) setMutual({ name: m.displayName, matchId: r.matchId });
+                            },
+                            onError: (e) =>
+                              setError(
+                                e instanceof ApiRequestError && e.status === 409
+                                  ? t('groups.crushFull')
+                                  : t('common.genericError'),
+                              ),
+                          },
+                        )
+                      }
+                    />
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
 

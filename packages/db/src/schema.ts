@@ -1044,6 +1044,8 @@ export const instanceSettings = pgTable(
     weeklyRose: boolean('weekly_rose').notNull().default(true),
     /** Phase 76c: the Question Game in chat (on). */
     chatGame: boolean('chat_game').notNull().default(true),
+    /** Phase 76f: members may propose groups, approved by the admins (off). */
+    memberGroups: boolean('member_groups').notNull().default(false),
     /** Phase 76b: the discovery lenses offered (all by default). */
     discoveryLenses: text('discovery_lenses')
       .array()
@@ -2334,6 +2336,10 @@ export const interestGroups = pgTable('interest_groups', {
   capacity: integer('capacity').notNull().default(500),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  /** Phase 76f: a member's proposal is 'pending' until the admins approve it. */
+  status: varchar('status', { length: 8 }).notNull().default('open'),
+  /** Phase 76f: the member who proposed it hosts it (may remove posts in it). */
+  hostId: text('host_id').references(() => user.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -2393,4 +2399,28 @@ export const groupDepartures = pgTable(
     leftAt: timestamp('left_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+);
+
+/**
+ * Phase 76f: a secret crush on another member of a shared group. Never shown to anyone: a mutual
+ * pair opens a match and both rows are deleted; a one-sided one expires after 30 days.
+ */
+export const groupCrushes = pgTable(
+  'group_crushes',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    targetId: text('target_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => interestGroups.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.targetId] }),
+    index('group_crushes_target_idx').on(t.targetId),
+  ],
 );

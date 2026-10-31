@@ -2,7 +2,9 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import {
+  crushResultSchema,
   groupDetailSchema,
+  groupProposalSchema,
   groupPostInputSchema,
   groupPostSchema,
   groupPostsSchema,
@@ -71,6 +73,40 @@ export const groupRoutes: FastifyPluginAsyncZod<{ auth: Auth; groups: GroupServi
       reply
         .status(201)
         .send(await groups.post(request.params.id, currentUser(request).id, request.body.body)),
+  );
+  // Phase 76f: a member proposes a group (when the community allows it); the admins approve it.
+  app.post(
+    '/v1/groups/proposals',
+    {
+      config: perUserLimit(10, 24 * 60 * 60_000),
+      schema: { body: groupProposalSchema, response: { 201: groupSchema } },
+    },
+    async (request, reply) =>
+      reply.status(201).send(await groups.propose(currentUser(request).id, request.body)),
+  );
+  // Phase 76f: the host removes a post in their own group (recorded in the audit log).
+  app.post(
+    '/v1/group-posts/:id/remove',
+    { config: membership, schema: { params, response: { 204: z.null() } } },
+    async (request, reply) => {
+      await groups.removePost(currentUser(request).id, request.params.id, true);
+      return reply.status(204).send(null);
+    },
+  );
+  // Phase 76f: a secret crush on a member of this group (only mutual ones ever show).
+  const crushParams = z.object({ id: z.uuid(), userId: z.string().min(1).max(64) });
+  const crushLimit = perUserLimit(30, 60 * 60_000);
+  app.put(
+    '/v1/groups/:id/crush/:userId',
+    { config: crushLimit, schema: { params: crushParams, response: { 200: crushResultSchema } } },
+    async (request) =>
+      groups.crush(request.params.id, currentUser(request).id, request.params.userId, true),
+  );
+  app.delete(
+    '/v1/groups/:id/crush/:userId',
+    { config: crushLimit, schema: { params: crushParams, response: { 200: crushResultSchema } } },
+    async (request) =>
+      groups.crush(request.params.id, currentUser(request).id, request.params.userId, false),
   );
   app.delete(
     '/v1/group-posts/:id',

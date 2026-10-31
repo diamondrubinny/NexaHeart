@@ -1058,6 +1058,10 @@ export class DiscoveryService {
       const [target] = await tx.select({ id: user.id }).from(user).where(eq(user.id, blockedId));
       if (!target) return [];
       await tx.insert(blocks).values({ blockerId, blockedId }).onConflictDoNothing();
+      // Phase 76f: secret crushes between the two end with the block, both ways.
+      await tx.execute(sql`DELETE FROM group_crushes
+        WHERE (user_id = ${blockerId} AND target_id = ${blockedId})
+           OR (user_id = ${blockedId} AND target_id = ${blockerId})`);
       const [a, b] = [blockerId, blockedId].sort() as [string, string];
       const ended = await tx
         .update(matches)

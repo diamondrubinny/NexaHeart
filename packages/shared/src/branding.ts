@@ -169,6 +169,8 @@ export const instanceSettingsInputSchema = z
       .refine((l) => new Set(l).size === l.length),
     /** Phase 76c: the Question Game in chat. */
     chatGame: z.boolean(),
+    /** Phase 76f: members may propose groups (the admins approve each). */
+    memberGroups: z.boolean(),
     /** Phase 76a: a free rose every week. */
     weeklyRose: z.boolean(),
     /** Phase 73b: share banned photos' hashes with partners, and accept theirs (for review). */

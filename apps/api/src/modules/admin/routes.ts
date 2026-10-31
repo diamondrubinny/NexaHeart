@@ -796,6 +796,24 @@ export const adminRoutes: FastifyPluginAsyncZod<{
         return groups.update(staff.id, request.params.id, request.body);
       },
     );
+    // Phase 76f: a member's proposal, approved or declined by an admin.
+    app.post(
+      '/v1/admin/groups/:id/decision',
+      {
+        config: perUserLimit(200, 60 * 60 * 1000),
+        schema: {
+          params: idParams,
+          body: z.object({ approve: z.boolean() }).strict(),
+          response: { 204: z.null() },
+        },
+      },
+      async (request, reply) => {
+        const staff = currentUser(request);
+        adminOnly(staff.role);
+        await groups.decide(staff.id, request.params.id, request.body.approve);
+        return reply.status(204).send(null);
+      },
+    );
     app.get(
       '/v1/admin/groups/:id/posts',
       {
