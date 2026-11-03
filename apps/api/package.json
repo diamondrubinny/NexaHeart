@@ -19,8 +19,8 @@
     "staff": "tsx --env-file-if-exists=../../.env src/cli/staff.ts"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.13",
-    "@better-auth/passkey": "1.7.13",
+    "@better-auth/expo": "1.7.14",
+    "@better-auth/passkey": "1.7.14",
     "@fastify/cors": "11.3.1",
     "@fastify/helmet": "13.2.0",
     "@fastify/multipart": "10.1.6",
@@ -32,16 +32,16 @@
     "@nexaheart/shared": "workspace:*",
     "@nexaheart/storage": "workspace:*",
     "@simplewebauthn/server": "13.3.3",
-    "better-auth": "1.7.13",
-    "bullmq": "6.4.2",
+    "better-auth": "1.7.14",
+    "bullmq": "6.5.2",
     "drizzle-orm": "0.45.4",
     "fastify": "5.12.7",
     "fastify-type-provider-zod": "7.0.0",
     "fflate": "0.8.3",
-    "file-type": "22.2.0",
+    "file-type": "22.3.0",
     "ioredis": "6.0.0",
     "livekit-server-sdk": "2.19.2",
-    "nodemailer": "10.2.1",
+    "nodemailer": "10.3.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
