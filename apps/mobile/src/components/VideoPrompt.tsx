@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import type { VideoCaptions } from '@nexaheart/shared';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { mediaUrl } from '../lib/api';
-import { radius, useColors } from '../lib/theme';
+import { radius, spacing, useColors } from '../lib/theme';
 import { useSessionCookie } from '../lib/use-cookie';
 import { AppText } from './AppText';
 import { RemoteImage } from './RemoteImage';
+import { VideoWords } from './VideoWords';
 import { formatSeconds } from './VoicePlayer';
 
 export interface VideoPromptProps {
@@ -18,6 +20,8 @@ export interface VideoPromptProps {
   /** The prompt it answers: the video's text alternative. */
   label: string;
   durationMs: number | null;
+  /** Phase 80: captions approved with the video. */
+  captions?: VideoCaptions | null;
 }
 
 function Player({ url, label }: { url: string; label: string }) {
@@ -43,7 +47,16 @@ function Player({ url, label }: { url: string; label: string }) {
 }
 
 /** Phase 76h: the poster with a play button; then the system player, starting muted. */
-export function VideoPrompt({ url, posterUrl, label, durationMs }: VideoPromptProps) {
+export function VideoPrompt(props: VideoPromptProps) {
+  return (
+    <View style={styles.stack}>
+      <VideoBox {...props} />
+      {props.captions ? <VideoWords captions={props.captions} /> : null}
+    </View>
+  );
+}
+
+function VideoBox({ url, posterUrl, label, durationMs }: VideoPromptProps) {
   const { t } = useTranslation();
   const colors = useColors();
   const [playing, setPlaying] = useState(false);
@@ -70,6 +83,7 @@ export function VideoPrompt({ url, posterUrl, label, durationMs }: VideoPromptPr
 }
 
 const styles = StyleSheet.create({
+  stack: { gap: spacing.sm },
   poster: { width: '100%', aspectRatio: 16 / 9, borderRadius: radius.md, overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
   play: {

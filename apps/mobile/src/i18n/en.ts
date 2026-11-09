@@ -1325,6 +1325,25 @@ export const en = {
     liked: 'Liked your song',
   },
   video: {
+    captions: 'Captions',
+    showWords: 'Show the words',
+    hideWords: 'Hide the words',
+    wordsAutomatic: 'Written automatically from the sound; there may be mistakes.',
+    captionsPending: 'Preparing captions…',
+    captionsNone: 'No speech was found in this video, so it has no captions.',
+    captionsFailed: 'Captions couldn’t be made for this video.',
+    captionsIntro:
+      'These lines were written automatically on this community’s server. Read them and fix any mistake; a moderator sees them with the video.',
+    captionsReviewNote:
+      'Your video is already approved. If you change the words, it’s hidden until a moderator looks again.',
+    captionLine: 'Line {{n}}, at {{time}}',
+    captionsSave: 'Save the words',
+    captionsOff: 'Turn captions off',
+    captionsSaved: 'The words are saved.',
+    captionsSavedReview: 'Saved. Your video is waiting for review again.',
+    captionsOffDone: 'Captions are off for this video.',
+    captionsEmptyLine: 'Write something in every line.',
+    captionsKinder: 'This may hurt. Please choose kinder words.',
     open: 'My video',
     title: 'My video',
     intro:

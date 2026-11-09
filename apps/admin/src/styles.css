@@ -1003,3 +1003,12 @@ html {
     scroll-padding-top: 0;
   }
 }
+
+/* Phase 80: caption lines next to a video in review. */
+.video-captions ol {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+.video-captions h3 {
+  margin-block-start: 0;
+}

@@ -4,7 +4,7 @@
 import type { MyVideo, PromptKey } from '@nexaheart/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Platform } from 'react-native';
-import { apiFetch } from './api';
+import { apiFetch, json } from './api';
 
 export const myVideoKey = ['me', 'video'] as const;
 export type MyVideoItem = NonNullable<MyVideo['video']>;
@@ -31,7 +31,16 @@ export interface PickedVideo {
 export function useUploadVideo() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ video, promptKey }: { video: PickedVideo; promptKey: PromptKey }) => {
+    mutationFn: async ({
+      video,
+      promptKey,
+      lang,
+    }: {
+      video: PickedVideo;
+      promptKey: PromptKey;
+      /** The app's language: the language spoken, for the captions. */
+      lang: string;
+    }) => {
       const form = new FormData();
       if (Platform.OS === 'web') {
         const file = video.file ?? ((await (await fetch(video.uri)).blob()) as File);
@@ -44,10 +53,10 @@ export function useUploadVideo() {
         } as unknown as Blob);
       }
       return (
-        await apiFetch<MyVideo>(`/v1/me/video?promptKey=${encodeURIComponent(promptKey)}`, {
-          method: 'POST',
-          body: form,
-        })
+        await apiFetch<MyVideo>(
+          `/v1/me/video?promptKey=${encodeURIComponent(promptKey)}&lang=${encodeURIComponent(lang)}`,
+          { method: 'POST', body: form },
+        )
       ).video;
     },
     onSuccess: (video) => client.setQueryData(myVideoKey, video),
@@ -59,5 +68,20 @@ export function useRemoveVideo() {
   return useMutation({
     mutationFn: async () => (await apiFetch<MyVideo>('/v1/me/video', { method: 'DELETE' })).video,
     onSuccess: () => client.setQueryData(myVideoKey, null),
+  });
+}
+
+/** Phase 80: correct the caption lines, or turn captions off with `null`. */
+export function useSaveCaptions() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (lines: string[] | null) =>
+      (
+        await apiFetch<MyVideo>('/v1/me/video/captions', {
+          method: 'PUT',
+          body: json({ lines }),
+        })
+      ).video,
+    onSuccess: (video) => client.setQueryData(myVideoKey, video),
   });
 }

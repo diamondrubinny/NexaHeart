@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
-import { MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, promptKeys, type PromptKey } from '@nexaheart/shared';
+import {
+  MAX_CUE_LENGTH,
+  MAX_VIDEO_BYTES,
+  MAX_VIDEO_SECONDS,
+  promptKeys,
+  type PromptKey,
+} from '@nexaheart/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,10 +19,19 @@ import { ChoiceGroup } from '../components/Choice';
 import { Loading } from '../components/Loading';
 import { RequireSession } from '../components/RequireSession';
 import { Screen } from '../components/Screen';
+import { TextField } from '../components/TextField';
 import { VideoPrompt } from '../components/VideoPrompt';
+import { formatSeconds } from '../components/VoicePlayer';
+import { useLocale } from '../lib/locale';
 import { ApiRequestError } from '../lib/api';
 import { spacing } from '../lib/theme';
-import { useMyVideo, useRemoveVideo, useUploadVideo, type MyVideoItem } from '../lib/video-queries';
+import {
+  useMyVideo,
+  useRemoveVideo,
+  useSaveCaptions,
+  useUploadVideo,
+  type MyVideoItem,
+} from '../lib/video-queries';
 
 function Status({ video }: { video: MyVideoItem }) {
   const { t } = useTranslation();
@@ -37,6 +52,97 @@ function Status({ video }: { video: MyVideoItem }) {
   return <Banner tone="success" message={t('video.approved')} />;
 }
 
+/**
+ * Phase 80: the automatic captions, for the owner to read, correct or turn off. The timing stays;
+ * only the words change.
+ */
+function CaptionsEditor({ video }: { video: MyVideoItem }) {
+  const { t } = useTranslation();
+  const save = useSaveCaptions();
+  const { status, cues } = video.captions;
+  const [lines, setLines] = useState(() => cues.map((cue) => cue.text));
+  const [notice, setNotice] = useState<{ tone: 'error' | 'success'; message: string }>();
+  if (status === 'off') return null;
+  const submit = (next: string[] | null) => {
+    setNotice(undefined);
+    if (next && next.some((line) => !line.trim())) {
+      return setNotice({ tone: 'error', message: t('video.captionsEmptyLine') });
+    }
+    save.mutate(next, {
+      onSuccess: (saved) =>
+        setNotice({
+          tone: 'success',
+          message:
+            next === null
+              ? t('video.captionsOffDone')
+              : saved?.status === 'review' && video.status === 'clean'
+                ? t('video.captionsSavedReview')
+                : t('video.captionsSaved'),
+        }),
+      onError: (e) =>
+        setNotice({
+          tone: 'error',
+          message:
+            e instanceof ApiRequestError && e.status === 422
+              ? t('video.captionsKinder')
+              : t('common.genericError'),
+        }),
+    });
+  };
+  return (
+    <View style={styles.preview}>
+      <AppText variant="heading">{t('video.captions')}</AppText>
+      {status === 'pending' ? <Banner tone="info" message={t('video.captionsPending')} /> : null}
+      {status === 'none' ? (
+        <AppText variant="body" tone="muted">
+          {t('video.captionsNone')}
+        </AppText>
+      ) : null}
+      {status === 'failed' ? (
+        <AppText variant="body" tone="muted">
+          {t('video.captionsFailed')}
+        </AppText>
+      ) : null}
+      {status === 'done' ? (
+        <>
+          <AppText variant="body">{t('video.captionsIntro')}</AppText>
+          {video.status === 'clean' ? (
+            <AppText variant="caption" tone="muted">
+              {t('video.captionsReviewNote')}
+            </AppText>
+          ) : null}
+          {notice ? <Banner tone={notice.tone} message={notice.message} /> : null}
+          {cues.map((cue, i) => (
+            <TextField
+              key={cue.start}
+              label={t('video.captionLine', { n: i + 1, time: formatSeconds(cue.start) })}
+              value={lines[i] ?? ''}
+              maxLength={MAX_CUE_LENGTH}
+              onChangeText={(text) =>
+                setLines((current) => current.map((line, at) => (at === i ? text : line)))
+              }
+            />
+          ))}
+          <Button
+            variant="secondary"
+            label={t('video.captionsSave')}
+            loading={save.isPending}
+            onPress={() => submit(lines.map((line) => line.trim()))}
+          />
+          <Button
+            variant="ghost"
+            label={t('video.captionsOff')}
+            disabled={save.isPending}
+            onPress={() => submit(null)}
+          />
+        </>
+      ) : notice ? (
+        <Banner tone={notice.tone} message={notice.message} />
+      ) : null}
+    </View>
+  );
+}
+
 /** Phase 76h: one short video answering a prompt, shown after a moderator approves it. */
 function EditVideo() {
   const { t } = useTranslation();
@@ -45,6 +151,7 @@ function EditVideo() {
   const remove = useRemoveVideo();
   const [promptKey, setPromptKey] = useState<PromptKey>();
   const [error, setError] = useState<string>();
+  const { locale } = useLocale();
   if (mine.isPending) return <Loading />;
   const video = mine.data ?? null;
   const chosen = promptKey ?? video?.promptKey ?? promptKeys[0];
@@ -67,6 +174,7 @@ function EditVideo() {
     upload.mutate(
       {
         promptKey: chosen,
+        lang: locale,
         video: {
           uri: asset.uri,
           mimeType: asset.mimeType ?? null,
@@ -102,8 +210,20 @@ function EditVideo() {
             posterUrl={video.posterUrl}
             label={t(`prompt.${video.promptKey}`)}
             durationMs={video.durationMs}
+            captions={
+              video.captions.status === 'done' && video.captions.cues.length > 0
+                ? { lang: video.captions.lang ?? 'en', cues: video.captions.cues }
+                : null
+            }
           />
         </View>
+      ) : null}
+      {/* Remounted when the captions arrive or change state, so the fields start from them. */}
+      {video && (video.status === 'review' || video.status === 'clean') ? (
+        <CaptionsEditor
+          key={`${video.id}-${video.captions.status}-${video.captions.cues.length}`}
+          video={video}
+        />
       ) : null}
       <ChoiceGroup
         label={t('video.which')}

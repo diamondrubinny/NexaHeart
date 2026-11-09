@@ -348,6 +348,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       // Still being prepared: not in the moderators' queue yet.
       expect(await mine(noa)).toMatchObject({
         status: 'processing',
+        url: null,
         captions: { status: 'pending' },
       });
       expect((await get(staff, '/v1/admin/videos')).json().videos).toEqual([]);
@@ -454,7 +455,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'failed' } });
 
       // The queue is down: straight to review.
-      video = (await uploadIn(noa, 'en')).json().video;
+      await uploadIn(noa, 'en');
       const down: JobContext = {
         ...worker,
         enqueueCaptions: async () => {
@@ -473,7 +474,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       expect(await processCaptions(worker, model(), { videoId: video.id })).toBe('not allowed');
       expect(asked).toEqual([]);
       expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'off' } });
-      video = (await uploadIn(noa, 'en')).json().video;
+      await uploadIn(noa, 'en');
       queued.length = 0;
       expect(await processVideo(captioning(), ctx.jobs.video.at(-1)!)).toBe('review');
       expect(queued).toEqual([]);

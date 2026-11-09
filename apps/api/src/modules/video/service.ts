@@ -123,7 +123,11 @@ export class VideoService {
   async mine(userId: string): Promise<MyVideo> {
     const row = await this.row(userId);
     if (!row) return { video: null };
-    const ready = row.mediaKey !== null && row.posterKey !== null;
+    // Viewable by its owner once it's out of the pipeline (not while captions are being made).
+    const ready =
+      row.mediaKey !== null &&
+      row.posterKey !== null &&
+      (row.status === 'review' || row.status === 'clean');
     return {
       video: {
         id: row.id,
