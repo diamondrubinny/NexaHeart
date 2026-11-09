@@ -389,6 +389,7 @@ export function ProfileCard({ profile, onLikeItem }: ProfileCardProps) {
                   posterUrl={profile.videoPrompt.posterUrl}
                   label={t(`prompt.${profile.videoPrompt.promptKey}`)}
                   durationMs={profile.videoPrompt.durationMs}
+                  captions={profile.videoPrompt.captions ?? null}
                 />
               </View>
             </View>

@@ -35,6 +35,11 @@ export interface JobContext {
   /** ffmpeg/ffprobe binaries for voice messages (default: from PATH). */
   ffmpegPath?: string;
   ffprobePath?: string;
+  /**
+   * Phase 80: queues captions for a re-encoded video. Unset when the community turned transcripts
+   * off: videos then go straight to review.
+   */
+  enqueueCaptions?: (videoId: string) => Promise<void>;
   /** Publishes a realtime event to a user (chat images: tell both people the scan finished). */
   publish?: (userId: string, event: RealtimeEvent) => Promise<void>;
 }
@@ -423,10 +428,19 @@ export async function processVideo(
   await ctx.storage.put(ctx.storage.buckets.media, key, processed.data, 'video/mp4');
   await ctx.storage.put(ctx.storage.buckets.media, webmKey, processed.webm, 'video/webm');
   await ctx.storage.put(ctx.storage.buckets.media, posterKey, processed.poster, 'image/jpeg');
+  // Phase 80: captions first, so moderators approve them with the video. Not when the community
+  // turned transcripts off, or the owner chose "voice only" (phase 26).
+  const [pref] = await ctx.db
+    .select({ allow: schema.preferences.allowTranscripts })
+    .from(schema.preferences)
+    .where(eq(schema.preferences.userId, row.userId));
+  const captions = Boolean(ctx.enqueueCaptions) && pref?.allow !== false;
   const updated = await ctx.db
     .update(profileVideos)
     .set({
-      status: 'review',
+      status: captions ? 'processing' : 'review',
+      captionsStatus: captions ? 'pending' : 'off',
+      captionsRequestedAt: captions ? new Date() : null,
       mediaKey: key,
       posterKey,
       webmKey,
@@ -440,5 +454,42 @@ export async function processVideo(
     await ctx.storage.delete(ctx.storage.buckets.media, [key, posterKey, webmKey]);
   }
   await ctx.storage.delete(ctx.storage.buckets.quarantine, [row.quarantineKey]);
-  return updated.length === 0 ? 'orphaned' : 'review';
+  if (updated.length === 0) return 'orphaned';
+  if (!captions) return 'review';
+  try {
+    await ctx.enqueueCaptions!(videoId);
+  } catch (error) {
+    // The queue is down: the video isn't held back for its captions.
+    ctx.log.warn({ videoId, err: error }, 'captions not queued; video sent to review');
+    await releaseVideo(ctx, videoId, 'failed');
+    return 'review';
+  }
+  return 'captioning';
+}
+
+/** A video waiting for its captions goes to review with this outcome (only if still waiting). */
+export async function releaseVideo(
+  ctx: JobContext,
+  videoId: string,
+  captionsStatus: 'done' | 'none' | 'failed' | 'off',
+  captions: { cues: { start: number; end: number; text: string }[]; flags: string[] } | null = null,
+): Promise<boolean> {
+  const { profileVideos } = schema;
+  const updated = await ctx.db
+    .update(profileVideos)
+    .set({
+      status: 'review',
+      captionsStatus,
+      captions: captions?.cues ?? null,
+      captionFlags: captions?.flags ?? [],
+    })
+    .where(
+      and(
+        eq(profileVideos.id, videoId),
+        eq(profileVideos.status, 'processing'),
+        eq(profileVideos.captionsStatus, 'pending'),
+      ),
+    )
+    .returning({ id: profileVideos.id });
+  return updated.length > 0;
 }

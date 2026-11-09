@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { strFromU8, unzipSync } from 'fflate';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processVideo, type JobContext } from '../../../worker/src/jobs.js';
+import type { Transcriber } from '../../../worker/src/transcribe.js';
+import { markCaptionsFailed, processCaptions } from '../../../worker/src/transcript-jobs.js';
 import { totp } from '../../src/lib/totp.js';
 import { api, createMember, type Member } from './members.js';
 import {
@@ -103,13 +105,26 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
     });
     return cookie;
   };
-  const decide = (id: string, body: object) =>
-    ctx.app.inject({
+  /** An approval names the captions the moderator saw: taken from the queue unless given. */
+  const decide = async (id: string, body: { approve: boolean; [key: string]: unknown }) => {
+    let payload = body;
+    if (body.approve && body.captionsVersion === undefined) {
+      const queue = (await get(staff, '/v1/admin/videos')).json().videos as {
+        id: string;
+        captionsVersion: string;
+      }[];
+      payload = {
+        ...body,
+        captionsVersion: queue.find((v) => v.id === id)?.captionsVersion ?? 'not-in-queue',
+      };
+    }
+    return ctx.app.inject({
       method: 'POST',
       url: `/v1/admin/videos/${id}/decision`,
       headers: { cookie: staff },
-      payload: body,
+      payload,
     });
+  };
 
   beforeAll(async () => {
     ctx = await setupIntegration();
@@ -159,7 +174,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
           method: 'POST',
           url: `/v1/admin/videos/${video.id}/decision`,
           headers: { cookie: noa.cookie },
-          payload: { approve: true },
+          payload: { approve: true, captionsVersion: 'x' },
         })
       ).statusCode,
     ).toBe(403);
@@ -271,7 +286,7 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
       method: 'POST',
       url: `/v1/admin/videos/${rows[0].id}/decision`,
       headers: { cookie: own },
-      payload: { approve: true },
+      payload: { approve: true, captionsVersion: 'x' },
     });
     expect(selfDecision.statusCode).toBe(403);
 
@@ -298,6 +313,245 @@ describe.skipIf(!integrationEnabled)('video prompts, phase 76h (integration)', (
     expect((await api(ctx, noa, 'GET', '/v1/me/video')).json().video).toMatchObject({
       status: 'rejected',
       rejectReason: 'undecodable',
+    });
+  });
+
+  describe('captions (phase 80)', () => {
+    const chunks = [
+      { start: 0, end: 1.2, text: ' My first date idea ' },
+      { start: 1.2, end: null, text: 'is a <b>walk</b> on the beach' },
+    ];
+    const asked: string[] = [];
+    const model = (answer: typeof chunks | Error = chunks): Transcriber => ({
+      transcribe: async () => '',
+      transcribeTimed: async (_media, lang) => {
+        asked.push(lang);
+        if (answer instanceof Error) throw answer;
+        return answer;
+      },
+    });
+    /** A worker that hands videos over to the captions job, like the real one. */
+    const queued: string[] = [];
+    const captioning = (): JobContext => ({
+      ...worker,
+      enqueueCaptions: async (videoId) => void queued.push(videoId),
+    });
+    const uploadIn = (m: Member, lang: string) => {
+      const body = multipart(clip);
+      return ctx.app.inject({
+        method: 'POST',
+        url: `/v1/me/video?promptKey=first_date_idea&lang=${lang}`,
+        payload: body.payload,
+        headers: { ...body.headers, cookie: m.cookie },
+      });
+    };
+    const mine = async (m: Member) => (await api(ctx, m, 'GET', '/v1/me/video')).json().video;
+    const setLines = (m: Member, lines: string[] | null) =>
+      api(ctx, m, 'PUT', '/v1/me/video/captions', { lines });
+    beforeEach(() => {
+      asked.length = 0;
+      queued.length = 0;
+    });
+
+    it('captions are made before review, approved with the video, and reach viewers', async () => {
+      const video = (await uploadIn(noa, 'he')).json().video;
+      expect(video.captions).toEqual({ status: 'off', lang: 'he', cues: [] });
+      expect(await processVideo(captioning(), ctx.jobs.video.at(-1)!)).toBe('captioning');
+      expect(queued).toEqual([video.id]);
+      // Still being prepared: not in the moderators' queue yet.
+      expect(await mine(noa)).toMatchObject({
+        status: 'processing',
+        url: null,
+        captions: { status: 'pending' },
+      });
+      expect((await get(staff, '/v1/admin/videos')).json().videos).toEqual([]);
+
+      expect(await processCaptions(worker, model(), { videoId: video.id })).toBe('done');
+      expect(asked).toEqual(['he']);
+      const ready = await mine(noa);
+      expect(ready.status).toBe('review');
+      expect(ready.captions).toEqual({
+        status: 'done',
+        lang: 'he',
+        cues: [
+          { start: 0, end: 1200, text: 'My first date idea' },
+          { start: 1200, end: ready.durationMs, text: 'is a <b>walk</b> on the beach' },
+        ],
+      });
+      // A second run does nothing.
+      expect(await processCaptions(worker, model(), { videoId: video.id })).toBe('skipped');
+
+      const [inQueue] = (await get(staff, '/v1/admin/videos')).json().videos;
+      expect(inQueue.captions.cues).toHaveLength(2);
+      expect(inQueue.captionFlags).toEqual([]);
+      expect((await api(ctx, dan, 'GET', `/v1/profiles/${noa.id}`)).json().videoPrompt).toBeNull();
+      expect(
+        (await decide(video.id, { approve: true, captionsVersion: inQueue.captionsVersion }))
+          .statusCode,
+      ).toBe(204);
+      const seen = (await api(ctx, dan, 'GET', `/v1/profiles/${noa.id}`)).json().videoPrompt;
+      expect(seen.captions).toEqual({ lang: 'he', cues: ready.captions.cues });
+    });
+
+    it('the owner corrects the words: harm-checked, and an approved video is reviewed again', async () => {
+      const video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await processCaptions(worker, model(), { videoId: video.id });
+      // Before approval: corrected in place.
+      expect((await setLines(noa, ['Only one line'])).statusCode).toBe(409);
+      expect((await setLines(noa, ['You idiot', 'ok'])).statusCode).toBe(422);
+      expect((await setLines(noa, ['I will', 'kill you'])).statusCode).toBe(422);
+      expect((await setLines(noa, ['Line\u202Eone', 'two'])).statusCode).toBe(400);
+      const stale = (await get(staff, '/v1/admin/videos')).json().videos[0].captionsVersion;
+      const fixed = await setLines(noa, ['My first-date idea', 'is a walk on the beach']);
+      expect(fixed.statusCode, fixed.body).toBe(200);
+      expect(fixed.json().video).toMatchObject({ status: 'review' });
+      expect(fixed.json().video.captions.cues.map((c: { text: string }) => c.text)).toEqual([
+        'My first-date idea',
+        'is a walk on the beach',
+      ]);
+      expect(fixed.json().video.captions.cues[1].start).toBe(1200);
+      // The moderator's page showed the old words: the approval is refused.
+      expect((await decide(video.id, { approve: true, captionsVersion: stale })).statusCode).toBe(
+        409,
+      );
+      const fresh = (await get(staff, '/v1/admin/videos')).json().videos[0].captionsVersion;
+      expect((await decide(video.id, { approve: true, captionsVersion: fresh })).statusCode).toBe(
+        204,
+      );
+      // The same words again: nothing changes. Different words: back to review, hidden meanwhile.
+      await setLines(noa, ['My first-date idea', 'is a walk on the beach']);
+      expect((await mine(noa)).status).toBe('clean');
+      await setLines(noa, ['My first-date idea', 'is a walk on the sand']);
+      expect((await mine(noa)).status).toBe('review');
+      expect((await api(ctx, dan, 'GET', `/v1/profiles/${noa.id}`)).json().videoPrompt).toBeNull();
+      // Dan can't touch Noa's captions (he has no video: 404).
+      expect((await setLines(dan, ['x', 'y'])).statusCode).toBe(404);
+    });
+
+    it('turning captions off needs no review; flagged words are noted for moderators only', async () => {
+      const video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await processCaptions(worker, model([{ start: 0, end: 1, text: 'I will kill you' }]), {
+        videoId: video.id,
+      });
+      const [inQueue] = (await get(staff, '/v1/admin/videos')).json().videos;
+      expect(inQueue.captionFlags.length).toBeGreaterThan(0);
+      expect(JSON.stringify(await mine(noa))).not.toContain('captionFlags');
+      await decide(video.id, { approve: true });
+      const off = await setLines(noa, null);
+      expect(off.json().video).toMatchObject({
+        status: 'clean',
+        captions: { status: 'off', cues: [] },
+      });
+      const seen = (await api(ctx, dan, 'GET', `/v1/profiles/${noa.id}`)).json().videoPrompt;
+      expect(seen.captions).toBeNull();
+      // Once off there are no lines to correct.
+      expect((await setLines(noa, ['again'])).statusCode).toBe(409);
+    });
+
+    it('no captions for "voice only", without speech, or when the model fails; the video still reaches review', async () => {
+      // No speech found.
+      let video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      expect(await processCaptions(worker, model([]), { videoId: video.id })).toBe('none');
+      expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'none' } });
+
+      // The model fails: retried, and the last attempt releases the video.
+      video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await expect(
+        processCaptions(worker, model(new Error('model down')), { videoId: video.id }),
+      ).rejects.toThrow('model down');
+      expect((await mine(noa)).status).toBe('processing');
+      await markCaptionsFailed(worker, video.id);
+      expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'failed' } });
+
+      // The queue is down: straight to review.
+      await uploadIn(noa, 'en');
+      const down: JobContext = {
+        ...worker,
+        enqueueCaptions: async () => {
+          throw new Error('redis down');
+        },
+      };
+      expect(await processVideo(down, ctx.jobs.video.at(-1)!)).toBe('review');
+      expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'failed' } });
+
+      // "Voice only" (phase 26): never transcribed, even if chosen after the upload.
+      video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      const pref = await api(ctx, noa, 'PUT', '/v1/me/settings', { allowTranscripts: false });
+      expect(pref.statusCode, pref.body).toBeLessThan(300);
+      asked.length = 0;
+      expect(await processCaptions(worker, model(), { videoId: video.id })).toBe('not allowed');
+      expect(asked).toEqual([]);
+      expect(await mine(noa)).toMatchObject({ status: 'review', captions: { status: 'off' } });
+      await uploadIn(noa, 'en');
+      queued.length = 0;
+      expect(await processVideo(captioning(), ctx.jobs.video.at(-1)!)).toBe('review');
+      expect(queued).toEqual([]);
+    });
+
+    it('review fixes: an approval must name the words; new words are always reviewed; "voice only" and a rejection delete them', async () => {
+      const video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await processCaptions(worker, model(), { videoId: video.id });
+      // Without the version an approval isn't accepted at all.
+      const bare = await ctx.app.inject({
+        method: 'POST',
+        url: `/v1/admin/videos/${video.id}/decision`,
+        headers: { cookie: staff },
+        payload: { approve: true },
+      });
+      expect(bare.statusCode).toBe(400);
+      // A flagged line the model wrote doesn't stop the owner from fixing another line, and the
+      // moderator still gets the note.
+      await ctx.services.dbHandle.pool.query(
+        `UPDATE profile_videos SET captions = $2 WHERE id = $1`,
+        [
+          video.id,
+          JSON.stringify([
+            { start: 0, end: 1000, text: 'I will kill you' },
+            { start: 1000, end: 2000, text: 'a wlak on the beach' },
+          ]),
+        ],
+      );
+      const fixed = await setLines(noa, ['I will kill you', 'a walk on the beach']);
+      expect(fixed.statusCode, fixed.body).toBe(200);
+      expect((await get(staff, '/v1/admin/videos')).json().videos[0].captionFlags.length).toBe(1);
+      expect((await setLines(noa, ['I will kill you all', 'a walk'])).statusCode).toBe(422);
+
+      expect((await decide(video.id, { approve: true })).statusCode).toBe(204);
+      // "Voice only": the words already made are deleted, for viewers too.
+      await api(ctx, noa, 'PUT', '/v1/me/settings', { allowTranscripts: false });
+      expect(await mine(noa)).toMatchObject({ status: 'clean', captions: { status: 'off' } });
+      const seen = (await api(ctx, dan, 'GET', `/v1/profiles/${noa.id}`)).json().videoPrompt;
+      expect(seen.captions).toBeNull();
+
+      // A rejection deletes the words with the media.
+      await api(ctx, noa, 'PUT', '/v1/me/settings', { allowTranscripts: true });
+      const second = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await processCaptions(worker, model(), { videoId: second.id });
+      await decide(second.id, { approve: false, reason: 'offensive' });
+      const { rows } = await ctx.services.dbHandle.pool.query(
+        'SELECT captions, caption_flags FROM profile_videos WHERE id = $1',
+        [second.id],
+      );
+      expect(rows[0]).toEqual({ captions: null, caption_flags: [] });
+    });
+
+    it('the words are in my export', async () => {
+      const video = (await uploadIn(noa, 'en')).json().video;
+      await processVideo(captioning(), ctx.jobs.video.at(-1)!);
+      await processCaptions(worker, model(), { videoId: video.id });
+      const zip = unzipSync(
+        new Uint8Array((await api(ctx, noa, 'GET', '/v1/me/export')).rawPayload),
+      );
+      const data = JSON.parse(strFromU8(zip['data.json']!));
+      expect(data.videoPrompt.captions).toHaveLength(2);
+      expect(data.videoPrompt.captionsStatus).toBe('done');
     });
   });
 });

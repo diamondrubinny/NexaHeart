@@ -605,6 +605,9 @@ export async function exportMemberData(
       status: video.status,
       rejectReason: video.rejectReason,
       durationMs: video.durationMs,
+      // Phase 80: the words of the video, as made on this server or corrected by you.
+      captions: video.captionsStatus === 'done' ? (video.captions ?? []) : [],
+      captionsStatus: video.captionsStatus,
       uploadedAt: iso(video.createdAt),
       reviewedAt: iso(video.reviewedAt),
       file,

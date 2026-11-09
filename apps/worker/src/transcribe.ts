@@ -13,6 +13,17 @@ const SAMPLE_RATE = 16_000;
 /** Turns one voice clip (our own AAC rendition) into text, on this server. */
 export interface Transcriber {
   transcribe(audio: Buffer, lang: TranscriptLang): Promise<string>;
+  /**
+   * Phase 80: the same, as timed chunks (seconds) for captions. `media` is our own MP4 rendition
+   * (a video's sound track works too); no sound track gives no chunks.
+   */
+  transcribeTimed(media: Buffer, lang: TranscriptLang): Promise<TimedChunk[]>;
+}
+
+export interface TimedChunk {
+  start: number;
+  end: number | null;
+  text: string;
 }
 
 /** Decodes our own AAC/MP4 rendition to 16 kHz mono float samples with ffmpeg (no shell). */
@@ -74,10 +85,14 @@ const WHISPER_LANGUAGE: Record<TranscriptLang, string> = {
   ru: 'russian',
 };
 
+interface Recognized {
+  text: string;
+  chunks?: { timestamp: [number | null, number | null]; text: string }[];
+}
 type Recognizer = (
   audio: Float32Array,
   options: Record<string, unknown>,
-) => Promise<{ text: string } | { text: string }[]>;
+) => Promise<Recognized | Recognized[]>;
 
 /**
  * A local Whisper model through Transformers.js (ONNX Runtime on the CPU). The model is loaded on
@@ -112,6 +127,31 @@ export function createWhisper(options: {
         stride_length_s: 5,
       });
       return Array.isArray(result) ? result.map((r) => r.text).join(' ') : result.text;
+    },
+    async transcribeTimed(media, lang) {
+      // Our own re-encoded file: when ffmpeg finds no sound track in it, there's nothing to say.
+      const samples = await decodeForSpeech(media, options.ffmpeg).catch(() => null);
+      if (!samples || samples.length === 0) return [];
+      recognizer ??= load().catch((error: unknown) => {
+        recognizer = undefined;
+        throw error;
+      });
+      const result = await (
+        await recognizer
+      )(samples, {
+        language: WHISPER_LANGUAGE[lang],
+        task: 'transcribe',
+        chunk_length_s: 30,
+        stride_length_s: 5,
+        return_timestamps: true,
+      });
+      return (Array.isArray(result) ? result : [result]).flatMap((r) =>
+        (r.chunks ?? []).flatMap((chunk) =>
+          chunk.timestamp[0] === null
+            ? []
+            : [{ start: chunk.timestamp[0], end: chunk.timestamp[1], text: chunk.text }],
+        ),
+      );
     },
   };
 }

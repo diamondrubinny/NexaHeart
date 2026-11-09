@@ -46,7 +46,10 @@ const check = (ok: boolean, message: string) => {
   process.stdout.write(`  ${ok ? '✓' : '✗'} ${message}\n`);
 };
 
-// A short test clip with a location tag (it must not survive the re-encode).
+// A short test clip with real speech (ffmpeg's built-in English voice) and a location tag, which
+// must not survive the re-encode. The worker captions it with the real speech model.
+const SPOKEN = 'My perfect first date is a walk on the beach and a cup of coffee.';
+const CORRECTED = 'My perfect first date: a walk on the beach, then coffee.';
 const clipPath = join(mkdtempSync(join(tmpdir(), 'e2e-video-')), 'sunday.mp4');
 execFileSync('ffmpeg', [
   '-loglevel',
@@ -54,11 +57,13 @@ execFileSync('ffmpeg', [
   '-f',
   'lavfi',
   '-i',
-  'testsrc2=size=960x540:rate=25:duration=4',
+  'testsrc2=size=960x540:rate=25:duration=8',
   '-f',
   'lavfi',
   '-i',
-  'sine=frequency=440:duration=4',
+  `flite=text='${SPOKEN}':voice=slt`,
+  '-af',
+  'apad=pad_dur=6',
   '-metadata',
   'location=+32.0853+034.7818/',
   '-c:v',
@@ -67,6 +72,8 @@ execFileSync('ffmpeg', [
   'ultrafast',
   '-c:a',
   'aac',
+  '-ar',
+  '48000',
   '-shortest',
   '-y',
   clipPath,
@@ -121,7 +128,7 @@ async function playable(video: Locator): Promise<boolean> {
   );
 }
 
-async function waitForStatus(userId: string, status: string, ms = 90_000) {
+async function waitForStatus(userId: string, status: string, ms = 240_000) {
   const until = Date.now() + ms;
   while (Date.now() < until) {
     const { rows } = await pool.query('SELECT status FROM profile_videos WHERE user_id = $1', [
@@ -149,6 +156,7 @@ try {
     await resetRouteLimits();
     // Earlier runs' videos, so the queue shows only this run's.
     await pool.query(`DELETE FROM profile_videos WHERE status = 'review'`);
+    let hasCaptions = false;
     const noa = await onboardMember(`video76-${locale}`, names.her, 'woman', ['man']);
     const dan = await onboardMember(`video76-${locale}`, names.him, 'man', ['woman']);
 
@@ -166,6 +174,38 @@ try {
       await N.page.getByText(t.video.review).waitFor({ timeout: 20_000 });
       await N.page.getByTestId('video-poster').waitFor();
       check(true, 'Noa sees "waiting for review" and her own preview');
+      // Phase 80: the worker captioned it with the speech model, before the review.
+      const { rows: captioned } = await pool.query(
+        'SELECT captions_status, captions FROM profile_videos WHERE user_id = $1',
+        [noa.id],
+      );
+      const heard = JSON.stringify(captioned[0]?.captions ?? []);
+      // The generated voice speaks English: the words are checked in English only. In Hebrew the
+      // model may find no Hebrew speech; then the rest of the captions flow is skipped.
+      hasCaptions = captioned[0]?.captions_status === 'done';
+      check(
+        hasCaptions || (locale !== 'en' && captioned[0]?.captions_status === 'none'),
+        `captions were made (${String(captioned[0]?.captions_status)}: ${heard})`,
+      );
+      if (locale === 'en') check(/coffee|beach|date/i.test(heard), 'the model heard the words');
+      if (hasCaptions) {
+        const firstLine = N.page.getByLabel(
+          new RegExp(`^${t.video.captionLine.split('{{n}}')[0]}1`),
+        );
+        await firstLine.waitFor();
+        const lineCount = await N.page
+          .getByLabel(new RegExp(`^${t.video.captionLine.split('{{n}}')[0]}\\d`))
+          .count();
+        for (let i = 1; i < lineCount; i += 1) {
+          await N.page
+            .getByLabel(new RegExp(`^${t.video.captionLine.split('{{n}}')[0]}${i + 1}\\b`))
+            .fill('…');
+        }
+        await firstLine.fill(CORRECTED);
+        await N.page.getByRole('button', { name: t.video.captionsSave, exact: true }).click();
+        await N.page.getByText(t.video.captionsSaved, { exact: true }).waitFor();
+        check(true, 'Noa corrected the words');
+      }
       await audit(N.page, `${locale}/video-review`);
       await shot(N.page, `${locale}/203-video-review`);
     } finally {
@@ -187,6 +227,13 @@ try {
       const player = S.page.getByLabel(watch, { exact: true }).locator('xpath=self::video');
       await player.waitFor();
       check(await playable(player), 'the moderator can play it');
+      if (hasCaptions) {
+        await S.page.getByRole('heading', { name: a.captions, exact: true }).waitFor();
+        check(
+          (await S.page.getByText(CORRECTED, { exact: true }).count()) === 1,
+          'the moderator reads the captions with the video',
+        );
+      }
       await audit(S.page, `${locale}/admin-videos`);
       await shot(S.page, `${locale}/admin-23-videos`);
       await S.page.getByRole('button', { name: `${a.approve} ${names.her}` }).click();
@@ -215,6 +262,29 @@ try {
       };
       check(state.ok, 'Dan plays the video');
       check(state.muted, 'it starts muted');
+      // Phase 80: a captions track, on by default, and the same words as text.
+      if (hasCaptions) {
+        const track = await video.evaluate(
+          (v: HTMLVideoElement) =>
+            new Promise<{ kind: string; mode: string; first: string }>((resolve) => {
+              const started = Date.now();
+              const timer = setInterval(() => {
+                const tt = v.textTracks[0];
+                const cue = tt?.cues?.[0] as VTTCue | undefined;
+                if (cue || Date.now() - started > 8000) {
+                  clearInterval(timer);
+                  resolve({ kind: tt?.kind ?? '', mode: tt?.mode ?? '', first: cue?.text ?? '' });
+                }
+              }, 200);
+            }),
+        );
+        check(track.kind === 'captions' && track.mode === 'showing', 'captions show by default');
+        check(track.first === CORRECTED, `the captions carry the corrected words (${track.first})`);
+        await block.getByRole('button', { name: t.video.showWords, exact: true }).click();
+        const words = block.getByTestId('video-words');
+        await words.waitFor();
+        check((await words.innerText()).includes(CORRECTED), 'the same words as text');
+      }
       await audit(D.page, `${locale}/video-playing`);
     } finally {
       await D.context.close();

@@ -16,6 +16,7 @@ Israeli standard **IS 5568** (based on WCAG 2.0 AA) 📘.
 - **Display and ease of use** (on the device only): larger text (up to ×1.5 on top of the system size), higher contrast, reduced motion, and an **easy mode** with three tabs, bigger buttons, fewer menus and a plain explanation under each action. It is offered on the welcome page too.
 - **Accessibility needs**, if you choose to share them: step-free places first when planning a date, captions starting by themselves in calls, and an optional line on your profile ("prefers texting first").
 - Voice messages can be turned off by the receiver, and every voice message and voice prompt has **Show text**: an automatic transcript made on the community's own server (it appears by itself for members who shared "deaf or hard of hearing").
+- **Video answers on profiles have captions** (on by default in the web app) and the same words as text ("Show the words"). They are written automatically on the community's own server; the member who made the video can correct them, and a moderator sees them before the video is shown.
 - Forms have labels and clear error messages; contrast is checked, including for the community's own
   brand colour, in light and dark mode: text at least 4.5:1 on every background, and the edges of
   fields and the keyboard focus ring at least 3:1.
@@ -26,6 +27,7 @@ Israeli standard **IS 5568** (based on WCAG 2.0 AA) 📘.
 ## Known limitations
 
 - Automatic transcripts can contain mistakes, especially in Hebrew and Arabic with the default model, and a speaker may choose "voice only".
+- Automatic captions on video answers can contain mistakes too, a video without speech has none, and a member may turn them off. In the phone apps the words are shown as text under the video, not over it.
 - [List anything found in your own review.]
 
 ## Contact

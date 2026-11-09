@@ -1127,6 +1127,9 @@ export const ar: Translations = {
       'المكالمات مشفّرة من طرف إلى طرف، وهذا المتصفح لا يدعم ذلك. استخدم تطبيق NexaHeart، أو إصدارًا حديثًا من Chrome أو Edge أو Firefox أو Safari.',
     captionsOn: 'إظهار الترجمة النصية',
     captionsOff: 'إخفاء الترجمة النصية',
+    captionsOffConfirm:
+      'هل تريد إيقاف الترجمة النصية لهذا الفيديو؟ ستُحذف السطور؛ للحصول عليها مجددًا يجب رفع الفيديو من جديد.',
+    captionsOffYes: 'نعم، إيقاف',
     captionsLabel: 'الترجمة النصية: ما يقوله {{name}}',
     captionsWaiting: 'جارٍ طلب الترجمة النصية من جهاز {{name}}…',
     captionsUnavailable:
@@ -1302,6 +1305,25 @@ export const ar: Translations = {
     liked: 'أُعجب بأغنيتك',
   },
   video: {
+    captions: 'الترجمة النصية',
+    showWords: 'عرض الكلمات',
+    hideWords: 'إخفاء الكلمات',
+    wordsAutomatic: 'كُتبت تلقائيًا من الصوت؛ قد توجد أخطاء.',
+    captionsPending: 'جارٍ تجهيز الترجمة النصية…',
+    captionsNone: 'لم يُعثر على كلام في هذا الفيديو، لذلك لا توجد له ترجمة نصية.',
+    captionsFailed: 'تعذّر إعداد ترجمة نصية لهذا الفيديو.',
+    captionsIntro:
+      'كُتبت هذه السطور تلقائيًا على خادم هذا المجتمع. اقرأها وصحّح أي خطأ؛ يراها المشرفون مع الفيديو.',
+    captionsReviewNote:
+      'تمت الموافقة على الفيديو. إذا غيّرت الكلمات فسيُخفى حتى يراجعه المشرفون مرة أخرى.',
+    captionLine: 'السطر {{n}}، عند {{time}}',
+    captionsSave: 'حفظ الكلمات',
+    captionsOff: 'إيقاف الترجمة النصية',
+    captionsSaved: 'تم حفظ الكلمات.',
+    captionsSavedReview: 'تم الحفظ. الفيديو بانتظار المراجعة مرة أخرى.',
+    captionsOffDone: 'الترجمة النصية متوقفة لهذا الفيديو.',
+    captionsEmptyLine: 'اكتب شيئًا في كل سطر.',
+    captionsKinder: 'قد يكون هذا جارحًا. يُفضَّل اختيار كلمات ألطف.',
     open: 'الفيديو الخاص بي',
     title: 'الفيديو الخاص بي',
     intro:

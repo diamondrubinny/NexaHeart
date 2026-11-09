@@ -1121,6 +1121,9 @@ export const he: Translations = {
       'השיחות מוצפנות מקצה לקצה, והדפדפן הזה לא תומך בכך. אפשר להשתמש באפליקציית NexaHeart, או בגרסה עדכנית של Chrome, Edge, Firefox או Safari.',
     captionsOn: 'הצגת כתוביות',
     captionsOff: 'הסתרת כתוביות',
+    captionsOffConfirm:
+      'לכבות את הכתוביות בסרטון הזה? השורות יימחקו; כדי לקבל כתוביות שוב צריך להעלות את הסרטון מחדש.',
+    captionsOffYes: 'כן, לכבות',
     captionsLabel: 'כתוביות: הדברים של {{name}}',
     captionsWaiting: 'מבקשים כתוביות מהמכשיר של {{name}}…',
     captionsUnavailable:
@@ -1294,6 +1297,24 @@ export const he: Translations = {
     liked: 'אהבו את השיר שלך',
   },
   video: {
+    captions: 'כתוביות',
+    showWords: 'הצגת המילים',
+    hideWords: 'הסתרת המילים',
+    wordsAutomatic: 'נכתב אוטומטית מהקול; ייתכנו טעויות.',
+    captionsPending: 'מכינים כתוביות…',
+    captionsNone: 'לא נמצא דיבור בסרטון, ולכן אין לו כתוביות.',
+    captionsFailed: 'לא הצלחנו להכין כתוביות לסרטון הזה.',
+    captionsIntro:
+      'השורות נכתבו אוטומטית בשרת של הקהילה. כדאי לקרוא ולתקן טעויות; צוות הניהול רואה אותן יחד עם הסרטון.',
+    captionsReviewNote: 'הסרטון שלך כבר אושר. שינוי במילים יסתיר אותו עד שצוות הניהול יבדוק שוב.',
+    captionLine: 'שורה {{n}}, בזמן {{time}}',
+    captionsSave: 'שמירת המילים',
+    captionsOff: 'כיבוי הכתוביות',
+    captionsSaved: 'המילים נשמרו.',
+    captionsSavedReview: 'נשמר. הסרטון שלך ממתין שוב לבדיקה.',
+    captionsOffDone: 'הכתוביות כבויות בסרטון הזה.',
+    captionsEmptyLine: 'צריך לכתוב משהו בכל שורה.',
+    captionsKinder: 'זה עלול לפגוע. כדאי לבחור מילים נעימות יותר.',
     open: 'הסרטון שלי',
     title: 'הסרטון שלי',
     intro:

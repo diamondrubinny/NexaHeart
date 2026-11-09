@@ -666,6 +666,20 @@
       "when": 1793473673074,
       "tag": "0094_video_webm",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1794254364327,
+      "tag": "0095_video_captions",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794255898306,
+      "tag": "0096_video_captions_requested",
+      "breakpoints": true
     }
   ]
 }

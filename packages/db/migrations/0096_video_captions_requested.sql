@@ -1,0 +1,1 @@
+ALTER TABLE "profile_videos" ADD COLUMN "captions_requested_at" timestamp with time zone;

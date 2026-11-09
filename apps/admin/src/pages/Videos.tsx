@@ -18,7 +18,16 @@ const reasons = [
   'other',
 ] as const;
 
-function VideoCard({ video, onDone }: { video: AdminVideo; onDone: (text: string) => void }) {
+function VideoCard({
+  video,
+  onDone,
+  onChanged,
+}: {
+  video: AdminVideo;
+  onDone: (text: string) => void;
+  /** Reload the queue (the owner changed the captions meanwhile). */
+  onChanged: () => void;
+}) {
   const { t, locale } = useLocale();
   const [reason, setReason] = useState<(typeof reasons)[number]>('nudity');
   const [busy, setBusy] = useState(false);
@@ -33,7 +42,9 @@ function VideoCard({ video, onDone }: { video: AdminVideo; onDone: (text: string
     try {
       await api.decideVideo(
         video.id,
-        approve ? { approve } : { approve, reason: reason as VideoRejectReason },
+        approve
+          ? { approve, captionsVersion: video.captionsVersion }
+          : { approve, reason: reason as VideoRejectReason },
       );
       onDone(format(approve ? t.videos.approved : t.videos.rejected, { name }));
     } catch (err) {
@@ -57,7 +68,25 @@ function VideoCard({ video, onDone }: { video: AdminVideo; onDone: (text: string
         className="review-video"
       />
       <ProtectedVideo path={video.url} label={format(t.videos.watch, { name })} />
-      {error ? <ErrorBox error={error} /> : null}
+      {/* Phase 80: the words, approved together with the video. */}
+      {video.captions ? (
+        <div className="video-captions">
+          <h3>{t.videos.captions}</h3>
+          {video.captionFlags.length > 0 ? (
+            <p className="alert alert-error">{t.videos.captionsFlagged}</p>
+          ) : null}
+          <ol lang={video.captions.lang}>
+            {video.captions.cues.map((cue) => (
+              <li key={cue.start} dir="auto">
+                {cue.text}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <p className="muted">{t.videos.noCaptions}</p>
+      )}
+      {error ? <ErrorBox error={error} onRetry={onChanged} /> : null}
       <div className="actions">
         <button
           type="button"
@@ -121,8 +150,9 @@ export function Videos() {
         <ul className="video-cards">
           {videos.map((v) => (
             <VideoCard
-              key={v.id}
+              key={`${v.id}-${v.captionsVersion}`}
               video={v}
+              onChanged={list.reload}
               onDone={(text) => {
                 setNotice(text);
                 statusRef.current?.focus();
