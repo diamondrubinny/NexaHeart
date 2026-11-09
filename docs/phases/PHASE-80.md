@@ -57,3 +57,47 @@ for voice messages (phase 26); this phase uses it to caption videos.
   staff.
 - e2e (en, he): upload a clip with real speech, the worker captions it, the moderator sees the
   lines, the viewer gets a captions track and the text; axe 0.
+
+## Done
+
+- **Shared:** cue and captions schemas, `normalizeCues` (clean, in order, short lines), `cuesToVtt`
+  (escaped), `captionsInputSchema`; `videoPrompt.captions`; the `caption-video` job.
+- **Migration 0095:** `profile_videos.lang`, `captions`, `captions_status`, `caption_flags`.
+- **Worker:**
+  - `transcribeTimed` on the local Whisper model (timed chunks).
+  - `processVideo` hands the video over to the captions job; the video reaches `review` when the
+    job ends, with or without captions.
+  - A video never waits for its captions: the last failed attempt, a queue that's down, or 15
+    minutes without an answer all release it to review.
+- **API:**
+  - `POST /v1/me/video?lang=`; `PUT /v1/me/video/captions` (correct the lines, or `null` to turn
+    them off).
+  - Captions in my video, in profiles (approved only), in the review queue (with the harm
+    filter's note) and in the export.
+  - An approval names the words the moderator saw (`captionsVersion`); if the owner changed them
+    meanwhile it's refused.
+- **App:** a captions track in the web player, on by default; "Show the words" under the video
+  (also in the native apps); the editor on "My video".
+- **Dashboard:** the lines and the flag note next to each video in review.
+- **Found on the way, fixed:** the editor started with no lines when the screen was open while
+  captions were being made (saving then failed); the owner's video address was returned before
+  the video could be opened.
+- **Docs:** the data map and the privacy policy drafts (the words of a video); the accessibility
+  statement drafts (captions, and their limits).
+- **Tests:** shared `video-captions.test.ts` (4); integration `video.test.ts` (11, 5 new); e2e
+  `pnpm --dir e2e video` (en, he) with the real speech model: the model hears the sentence, the
+  owner corrects it, the moderator reads it, the viewer gets the track and the text; axe 0.
+- 📘 To check on real devices: the text version in the native apps. The speech model's quality in
+  Hebrew and Arabic depends on the model the operator chooses (`TRANSCRIPTS_MODEL`).
+- **Independent review (before merge):** no critical issue; every finding acted on:
+  - An owner's edit could cross a moderator's approval and publish unreviewed words. Both now
+    lock the row; new words always go to review; an approval must name the words it saw.
+  - "Voice only" now also deletes captions already made; a rejection deletes them with the media.
+  - The 15-minute wait is counted from when captions were queued, not from the upload.
+  - Turning captions off asks first and says what happened; the text version carries its
+    language; each line in the dashboard takes its own direction.
+  - Only the lines the owner changed are harm-checked, and the note for moderators is kept.
+  - Left as is, and said in the accessibility statement drafts: the native apps show the words as
+    text, not over the video; a video whose captions failed can't be captioned by hand; the
+    language is the app's language at upload.
+- **Migration 0096:** `captions_requested_at`.

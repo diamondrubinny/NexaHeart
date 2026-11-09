@@ -26,7 +26,8 @@ export function VideoWords({ captions }: { captions: VideoCaptions }) {
         onPress={() => setOpen((value) => !value)}
       />
       {open ? (
-        <View testID="video-words" style={styles.lines}>
+        // The language of the words, so screen readers use the right voice (WCAG 3.1.2).
+        <View testID="video-words" style={styles.lines} {...({ lang: captions.lang } as object)}>
           <AppText variant="caption" tone="muted">
             {t('video.wordsAutomatic')}
           </AppText>

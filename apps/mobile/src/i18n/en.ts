@@ -1149,6 +1149,9 @@ export const en = {
       'Calls are end-to-end encrypted, and this browser doesn’t support that. Use the NexaHeart app, or an up-to-date Chrome, Edge, Firefox or Safari.',
     captionsOn: 'Show captions',
     captionsOff: 'Hide captions',
+    captionsOffConfirm:
+      "Turn captions off for this video? The lines are deleted; to get captions again you'd upload the video again.",
+    captionsOffYes: 'Yes, turn them off',
     captionsLabel: 'Captions: what {{name}} says',
     captionsWaiting: 'Asking {{name}}’s device for captions…',
     captionsUnavailable:

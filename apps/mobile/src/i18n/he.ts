@@ -1121,6 +1121,9 @@ export const he: Translations = {
       'השיחות מוצפנות מקצה לקצה, והדפדפן הזה לא תומך בכך. אפשר להשתמש באפליקציית NexaHeart, או בגרסה עדכנית של Chrome, Edge, Firefox או Safari.',
     captionsOn: 'הצגת כתוביות',
     captionsOff: 'הסתרת כתוביות',
+    captionsOffConfirm:
+      'לכבות את הכתוביות בסרטון הזה? השורות יימחקו; כדי לקבל כתוביות שוב צריך להעלות את הסרטון מחדש.',
+    captionsOffYes: 'כן, לכבות',
     captionsLabel: 'כתוביות: הדברים של {{name}}',
     captionsWaiting: 'מבקשים כתוביות מהמכשיר של {{name}}…',
     captionsUnavailable:

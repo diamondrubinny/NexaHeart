@@ -75,9 +75,11 @@ function VideoCard({
           {video.captionFlags.length > 0 ? (
             <p className="alert alert-error">{t.videos.captionsFlagged}</p>
           ) : null}
-          <ol lang={video.captions.lang} dir="auto">
+          <ol lang={video.captions.lang}>
             {video.captions.cues.map((cue) => (
-              <li key={cue.start}>{cue.text}</li>
+              <li key={cue.start} dir="auto">
+                {cue.text}
+              </li>
             ))}
           </ol>
         </div>

@@ -9,7 +9,7 @@ import {
   type PromptKey,
 } from '@nexaheart/shared';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { AppText } from '../components/AppText';
@@ -62,23 +62,33 @@ function CaptionsEditor({ video }: { video: MyVideoItem }) {
   const { status, cues } = video.captions;
   const [lines, setLines] = useState(() => cues.map((cue) => cue.text));
   const [notice, setNotice] = useState<{ tone: 'error' | 'success'; message: string }>();
-  if (status === 'off') return null;
+  const [confirmOff, setConfirmOff] = useState(false);
+  // The fields follow the saved lines (they arrive after the screen opens, while the captions are
+  // still being made). The notice stays, so the result of an action is always announced.
+  const saved = cues.map((cue) => cue.text).join('\n');
+  useEffect(() => {
+    setLines(saved ? saved.split('\n') : []);
+  }, [saved]);
+  // Captions that were never on for this video: nothing to show.
+  if (status === 'off' && !notice) return null;
   const submit = (next: string[] | null) => {
     setNotice(undefined);
     if (next && next.some((line) => !line.trim())) {
       return setNotice({ tone: 'error', message: t('video.captionsEmptyLine') });
     }
     save.mutate(next, {
-      onSuccess: (saved) =>
+      onSuccess: (result) => {
+        setConfirmOff(false);
         setNotice({
           tone: 'success',
           message:
             next === null
               ? t('video.captionsOffDone')
-              : saved?.status === 'review' && video.status === 'clean'
+              : result?.status === 'review' && video.status === 'clean'
                 ? t('video.captionsSavedReview')
                 : t('video.captionsSaved'),
-        }),
+        });
+      },
       onError: (e) =>
         setNotice({
           tone: 'error',
@@ -92,6 +102,7 @@ function CaptionsEditor({ video }: { video: MyVideoItem }) {
   return (
     <View style={styles.preview}>
       <AppText variant="heading">{t('video.captions')}</AppText>
+      {notice ? <Banner tone={notice.tone} message={notice.message} /> : null}
       {status === 'pending' ? <Banner tone="info" message={t('video.captionsPending')} /> : null}
       {status === 'none' ? (
         <AppText variant="body" tone="muted">
@@ -111,7 +122,6 @@ function CaptionsEditor({ video }: { video: MyVideoItem }) {
               {t('video.captionsReviewNote')}
             </AppText>
           ) : null}
-          {notice ? <Banner tone={notice.tone} message={notice.message} /> : null}
           {cues.map((cue, i) => (
             <TextField
               key={cue.start}
@@ -119,7 +129,7 @@ function CaptionsEditor({ video }: { video: MyVideoItem }) {
               value={lines[i] ?? ''}
               maxLength={MAX_CUE_LENGTH}
               onChangeText={(text) =>
-                setLines((current) => current.map((line, at) => (at === i ? text : line)))
+                setLines((current) => cues.map((_, at) => (at === i ? text : (current[at] ?? ''))))
               }
             />
           ))}
@@ -127,17 +137,33 @@ function CaptionsEditor({ video }: { video: MyVideoItem }) {
             variant="secondary"
             label={t('video.captionsSave')}
             loading={save.isPending}
-            onPress={() => submit(lines.map((line) => line.trim()))}
+            onPress={() => submit(cues.map((_, i) => (lines[i] ?? '').trim()))}
           />
-          <Button
-            variant="ghost"
-            label={t('video.captionsOff')}
-            disabled={save.isPending}
-            onPress={() => submit(null)}
-          />
+          {confirmOff ? (
+            // Turning captions off deletes the lines: asked twice.
+            <View style={styles.preview}>
+              <AppText variant="body">{t('video.captionsOffConfirm')}</AppText>
+              <Button
+                variant="dangerGhost"
+                label={t('video.captionsOffYes')}
+                loading={save.isPending}
+                onPress={() => submit(null)}
+              />
+              <Button
+                variant="ghost"
+                label={t('common.cancel')}
+                onPress={() => setConfirmOff(false)}
+              />
+            </View>
+          ) : (
+            <Button
+              variant="ghost"
+              label={t('video.captionsOff')}
+              disabled={save.isPending}
+              onPress={() => setConfirmOff(true)}
+            />
+          )}
         </>
-      ) : notice ? (
-        <Banner tone={notice.tone} message={notice.message} />
       ) : null}
     </View>
   );
@@ -218,12 +244,8 @@ function EditVideo() {
           />
         </View>
       ) : null}
-      {/* Remounted when the captions arrive or change state, so the fields start from them. */}
       {video && (video.status === 'review' || video.status === 'clean') ? (
-        <CaptionsEditor
-          key={`${video.id}-${video.captions.status}-${video.captions.cues.length}`}
-          video={video}
-        />
+        <CaptionsEditor key={video.id} video={video} />
       ) : null}
       <ChoiceGroup
         label={t('video.which')}

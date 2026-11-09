@@ -235,12 +235,13 @@ async function main(): Promise<void> {
             })),
           };
         case 'checkins':
-          // Phase 80: a video never waits for captions more than 15 minutes (a lost job, or no
-          // worker with the speech model): it goes to review without them.
+          // Phase 80: a video never waits for captions more than 15 minutes from the moment they
+          // were queued (a lost job, or no worker with the speech model): it goes to review
+          // without them.
           await db.execute(sql`
             UPDATE profile_videos SET status = 'review', captions_status = 'failed'
             WHERE status = 'processing' AND captions_status = 'pending'
-              AND created_at < now() - interval '15 minutes'`);
+              AND captions_requested_at < now() - interval '15 minutes'`);
           return processCheckins({
             db,
             instanceName: async () => {

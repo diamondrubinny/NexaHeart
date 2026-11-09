@@ -1127,6 +1127,9 @@ export const ar: Translations = {
       'المكالمات مشفّرة من طرف إلى طرف، وهذا المتصفح لا يدعم ذلك. استخدم تطبيق NexaHeart، أو إصدارًا حديثًا من Chrome أو Edge أو Firefox أو Safari.',
     captionsOn: 'إظهار الترجمة النصية',
     captionsOff: 'إخفاء الترجمة النصية',
+    captionsOffConfirm:
+      'هل تريد إيقاف الترجمة النصية لهذا الفيديو؟ ستُحذف السطور؛ للحصول عليها مجددًا يجب رفع الفيديو من جديد.',
+    captionsOffYes: 'نعم، إيقاف',
     captionsLabel: 'الترجمة النصية: ما يقوله {{name}}',
     captionsWaiting: 'جارٍ طلب الترجمة النصية من جهاز {{name}}…',
     captionsUnavailable:

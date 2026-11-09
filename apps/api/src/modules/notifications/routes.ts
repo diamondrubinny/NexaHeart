@@ -127,6 +127,16 @@ export const notificationRoutes: FastifyPluginAsyncZod<{
           .update(audioClips)
           .set({ transcript: null, transcriptStatus: null })
           .where(eq(audioClips.userId, currentUser(request).id));
+        // Phase 80: and the captions of my video.
+        await db
+          .update(schema.profileVideos)
+          .set({ captions: null, captionsStatus: 'off', captionFlags: [] })
+          .where(
+            and(
+              eq(schema.profileVideos.userId, currentUser(request).id),
+              eq(schema.profileVideos.captionsStatus, 'done'),
+            ),
+          );
       }
       return { ok: true as const };
     },

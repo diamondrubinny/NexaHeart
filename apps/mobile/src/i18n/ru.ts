@@ -1161,6 +1161,9 @@ export const ru: Translations = {
       'Звонки защищены сквозным шифрованием, а этот браузер его не поддерживает. Используйте приложение NexaHeart или свежую версию Chrome, Edge, Firefox или Safari.',
     captionsOn: 'Показать субтитры',
     captionsOff: 'Скрыть субтитры',
+    captionsOffConfirm:
+      'Отключить субтитры для этого видео? Строки будут удалены; чтобы получить их снова, нужно загрузить видео заново.',
+    captionsOffYes: 'Да, отключить',
     captionsLabel: 'Субтитры: что говорит {{name}}',
     captionsWaiting: 'Запрашиваем субтитры у устройства собеседника ({{name}})…',
     captionsUnavailable:

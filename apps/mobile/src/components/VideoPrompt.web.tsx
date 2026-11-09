@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import { cuesToVtt, type VideoCaptions } from '@nexaheart/shared';
-import { createElement, useEffect, useMemo, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { mediaUrl } from '../lib/api';
@@ -48,14 +48,13 @@ function VideoBox({ url, posterUrl, label, durationMs, captions }: VideoPromptPr
   const [playing, setPlaying] = useState(false);
   // Phase 80: the captions as a WebVTT track from a local blob (the text is escaped when the track
   // is built), so the player shows them, on by default.
-  const track = useMemo(
-    () =>
-      captions && typeof URL !== 'undefined'
-        ? URL.createObjectURL(new Blob([cuesToVtt(captions.cues)], { type: 'text/vtt' }))
-        : null,
-    [captions],
-  );
-  useEffect(() => () => void (track && URL.revokeObjectURL(track)), [track]);
+  const [track, setTrack] = useState<string | null>(null);
+  useEffect(() => {
+    if (!captions || typeof URL === 'undefined') return setTrack(null);
+    const url = URL.createObjectURL(new Blob([cuesToVtt(captions.cues)], { type: 'text/vtt' }));
+    setTrack(url);
+    return () => URL.revokeObjectURL(url);
+  }, [captions]);
   if (playing) {
     return createElement(
       'video',

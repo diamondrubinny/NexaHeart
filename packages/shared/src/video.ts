@@ -233,5 +233,9 @@ export const videoDecisionSchema = z
   .refine((v) => v.approve || v.reason !== undefined, {
     message: 'A rejection needs a reason',
     path: ['reason'],
+  })
+  .refine((v) => !v.approve || v.captionsVersion !== undefined, {
+    message: 'An approval names the captions that were seen',
+    path: ['captionsVersion'],
   });
 export type VideoDecision = z.infer<typeof videoDecisionSchema>;

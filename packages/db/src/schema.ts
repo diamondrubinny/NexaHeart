@@ -2466,6 +2466,8 @@ export const profileVideos = pgTable('profile_videos', {
   lang: varchar('lang', { length: 5 }),
   /** Timed lines `{start, end, text}[]` (ms), made on this server; the owner may correct them. */
   captions: jsonb('captions').$type<{ start: number; end: number; text: string }[]>(),
+  /** When the captions job was queued: a video waits for it 15 minutes at most. */
+  captionsRequestedAt: timestamp('captions_requested_at', { withTimezone: true }),
   /** pending | done | none | failed | off; null on videos from before phase 80. */
   captionsStatus: varchar('captions_status', { length: 8 }),
   /** Harm categories found in the captions, for moderators only. */

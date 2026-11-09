@@ -113,9 +113,14 @@ export async function processCaptions(
     await releaseVideo(ctx, videoId, 'off');
     return 'not allowed';
   }
+  // Without a known length the lines can't be timed.
+  if (!row.durationMs || row.durationMs <= 0) {
+    await releaseVideo(ctx, videoId, 'none');
+    return 'none';
+  }
   const media = await ctx.storage.getBuffer(ctx.storage.buckets.media, row.mediaKey);
   const chunks = await transcriber.transcribeTimed(media, await languageOf(ctx, row.lang));
-  const cues = normalizeCues(chunks, row.durationMs ?? 0);
+  const cues = normalizeCues(chunks, row.durationMs);
   if (cues.length === 0) {
     await releaseVideo(ctx, videoId, 'none');
     return 'none';

@@ -440,6 +440,7 @@ export async function processVideo(
     .set({
       status: captions ? 'processing' : 'review',
       captionsStatus: captions ? 'pending' : 'off',
+      captionsRequestedAt: captions ? new Date() : null,
       mediaKey: key,
       posterKey,
       webmKey,

@@ -224,41 +224,51 @@ export class VideoService {
    * off needs no review.
    */
   async setCaptions(userId: string, input: CaptionsInput): Promise<MyVideo> {
-    const row = await this.row(userId);
-    if (!row || (row.status !== 'review' && row.status !== 'clean')) throw notFound();
-    const stillThere = and(
-      eq(profileVideos.id, row.id),
-      inArray(profileVideos.status, ['review', 'clean']),
-    );
-    if (input.lines === null) {
-      await this.db
+    // The row is locked, so this and a moderator's decision can't cross (phase 80 review).
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(profileVideos)
+        .where(eq(profileVideos.userId, userId))
+        .for('update');
+      if (!row || (row.status !== 'review' && row.status !== 'clean')) throw notFound();
+      if (input.lines === null) {
+        await tx
+          .update(profileVideos)
+          .set({ captions: null, captionsStatus: 'off', captionFlags: [] })
+          .where(eq(profileVideos.id, row.id));
+        return;
+      }
+      const cues = row.captionsStatus === 'done' ? (row.captions ?? []) : [];
+      if (cues.length === 0 || input.lines.length !== cues.length) {
+        throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Load them again.');
+      }
+      const lines = input.lines;
+      // Only what the owner wrote is refused: a line the model got wrong can still be fixed while
+      // another flagged line waits for the moderator.
+      const changed = lines.filter((text, i) => text !== cues[i]!.text);
+      if (changed.length === 0) return;
+      if ([...changed, changed.join(' ')].some((text) => checkHarm(text).flagged)) {
+        throw new HttpError(
+          422,
+          ErrorCode.ValidationError,
+          'This may hurt. Please choose kinder words.',
+        );
+      }
+      const harm = checkHarm(lines.join(' '));
+      await tx
         .update(profileVideos)
-        .set({ captions: null, captionsStatus: 'off', captionFlags: [] })
-        .where(stillThere);
-      return this.mine(userId);
-    }
-    const cues = row.captionsStatus === 'done' ? (row.captions ?? []) : [];
-    if (cues.length === 0 || input.lines.length !== cues.length) {
-      throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Load them again.');
-    }
-    const lines = input.lines;
-    if ([...lines, lines.join(' ')].some((text) => checkHarm(text).flagged)) {
-      throw new HttpError(
-        422,
-        ErrorCode.ValidationError,
-        'This may hurt. Please choose kinder words.',
-      );
-    }
-    if (lines.every((text, i) => text === cues[i]!.text)) return this.mine(userId);
-    await this.db
-      .update(profileVideos)
-      .set({
-        captions: cues.map((cue, i) => ({ ...cue, text: lines[i]! })),
-        captionFlags: [],
-        // Back to the moderators when it was already shown.
-        ...(row.status === 'clean' ? { status: 'review', reviewedBy: null, reviewedAt: null } : {}),
-      })
-      .where(stillThere);
+        .set({
+          captions: cues.map((cue, i) => ({ ...cue, text: lines[i]! })),
+          // What the filter sees in the whole text stays as a note for the moderator.
+          captionFlags: harm.flagged ? harm.categories : [],
+          // New words are always reviewed: back to the moderators if it was already shown.
+          status: 'review',
+          reviewedBy: null,
+          reviewedAt: null,
+        })
+        .where(eq(profileVideos.id, row.id));
+    });
     return this.mine(userId);
   }
 
@@ -350,44 +360,47 @@ export class VideoService {
    * approved video can be rejected later too (e.g. after a report).
    */
   async decide(staffId: string, videoId: string, decision: VideoDecision): Promise<void> {
-    const [row] = await this.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
-    if (!row) throw notFound();
-    // Phase 77e: nobody reviews their own video (like reports that involve them).
-    if (row.userId === staffId) {
-      throw new HttpError(403, ErrorCode.Forbidden, 'You cannot review your own video.');
-    }
-    // Phase 80: the owner corrected the captions after the moderator loaded them.
-    if (
-      decision.approve &&
-      decision.captionsVersion !== undefined &&
-      decision.captionsVersion !== captionsVersion(row)
-    ) {
-      throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Look again.');
-    }
-    const allowedFrom = decision.approve ? ['review'] : ['review', 'clean'];
-    if (!allowedFrom.includes(row.status)) {
-      throw new HttpError(409, ErrorCode.Conflict, 'This video is not waiting for a decision.');
-    }
-    const updated = await this.db
-      .update(profileVideos)
-      .set(
-        decision.approve
-          ? { status: 'clean', reviewedBy: staffId, reviewedAt: new Date() }
-          : {
-              status: 'rejected',
-              rejectReason: decision.reason!,
-              mediaKey: null,
-              posterKey: null,
-              webmKey: null,
-              reviewedBy: staffId,
-              reviewedAt: new Date(),
-            },
-      )
-      .where(and(eq(profileVideos.id, videoId), inArray(profileVideos.status, allowedFrom)))
-      .returning({ id: profileVideos.id });
-    if (updated.length === 0) {
-      throw new HttpError(409, ErrorCode.Conflict, 'This video is not waiting for a decision.');
-    }
+    // The row is locked for the decision: the words approved are the words the moderator saw.
+    const row = await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(profileVideos)
+        .where(eq(profileVideos.id, videoId))
+        .for('update');
+      if (!locked) throw notFound();
+      // Phase 77e: nobody reviews their own video (like reports that involve them).
+      if (locked.userId === staffId) {
+        throw new HttpError(403, ErrorCode.Forbidden, 'You cannot review your own video.');
+      }
+      const allowedFrom = decision.approve ? ['review'] : ['review', 'clean'];
+      if (!allowedFrom.includes(locked.status)) {
+        throw new HttpError(409, ErrorCode.Conflict, 'This video is not waiting for a decision.');
+      }
+      // Phase 80: the owner corrected the captions after the moderator loaded them.
+      if (decision.approve && decision.captionsVersion !== captionsVersion(locked)) {
+        throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Look again.');
+      }
+      await tx
+        .update(profileVideos)
+        .set(
+          decision.approve
+            ? { status: 'clean', reviewedBy: staffId, reviewedAt: new Date() }
+            : {
+                status: 'rejected',
+                rejectReason: decision.reason!,
+                mediaKey: null,
+                posterKey: null,
+                webmKey: null,
+                // The words go with the media.
+                captions: null,
+                captionFlags: [],
+                reviewedBy: staffId,
+                reviewedAt: new Date(),
+              },
+        )
+        .where(eq(profileVideos.id, videoId));
+      return locked;
+    });
     if (!decision.approve) await this.deleteMedia([row], false);
     await audit(this.db, {
       actorId: staffId,
