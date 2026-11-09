@@ -2462,6 +2462,17 @@ export const profileVideos = pgTable('profile_videos', {
   posterKey: text('poster_key'),
   /** The WebM rendition, for browsers without H.264. */
   webmKey: text('webm_key'),
+  /** Phase 80: the app language at upload (the language spoken, for the speech model). */
+  lang: varchar('lang', { length: 5 }),
+  /** Timed lines `{start, end, text}[]` (ms), made on this server; the owner may correct them. */
+  captions: jsonb('captions').$type<{ start: number; end: number; text: string }[]>(),
+  /** pending | done | none | failed | off; null on videos from before phase 80. */
+  captionsStatus: varchar('captions_status', { length: 8 }),
+  /** Harm categories found in the captions, for moderators only. */
+  captionFlags: text('caption_flags')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   durationMs: integer('duration_ms'),
   rejectReason: varchar('reject_reason', { length: 32 }),
   reviewedBy: text('reviewed_by').references(() => user.id, { onDelete: 'set null' }),

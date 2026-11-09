@@ -2,7 +2,14 @@
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
 import multipart from '@fastify/multipart';
-import { ErrorCode, MAX_VIDEO_BYTES, myVideoSchema, promptKeySchema } from '@nexaheart/shared';
+import {
+  captionsInputSchema,
+  ErrorCode,
+  MAX_VIDEO_BYTES,
+  myVideoSchema,
+  promptKeySchema,
+  transcriptLangSchema,
+} from '@nexaheart/shared';
 import type { StoredObject } from '@nexaheart/storage';
 import type { FastifyReply } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -59,7 +66,9 @@ export const videoRoutes: FastifyPluginAsyncZod<{ auth: Auth; videos: VideoServi
       config: perUserLimit(10, 24 * 60 * 60_000),
       bodyLimit: MAX_VIDEO_BYTES + 64 * 1024,
       schema: {
-        querystring: z.object({ promptKey: promptKeySchema }).strict(),
+        querystring: z
+          .object({ promptKey: promptKeySchema, lang: transcriptLangSchema.optional() })
+          .strict(),
         response: { 200: myVideoSchema },
       },
     },
@@ -70,8 +79,23 @@ export const videoRoutes: FastifyPluginAsyncZod<{ auth: Auth; videos: VideoServi
       if (file.file.truncated || buffer.length > MAX_VIDEO_BYTES) {
         throw new HttpError(413, ErrorCode.PayloadTooLarge, 'The video is too large.');
       }
-      return videos.upload(currentUser(request).id, request.query.promptKey, buffer);
+      return videos.upload(
+        currentUser(request).id,
+        request.query.promptKey,
+        buffer,
+        request.query.lang,
+      );
     },
+  );
+
+  // Phase 80: correct the automatic captions, or turn them off.
+  app.put(
+    '/v1/me/video/captions',
+    {
+      config: perUserLimit(30, 60 * 60_000),
+      schema: { body: captionsInputSchema, response: { 200: myVideoSchema } },
+    },
+    async (request) => videos.setCaptions(currentUser(request).id, request.body),
   );
 
   app.delete('/v1/me/video', { schema: { response: { 200: myVideoSchema } } }, async (request) => {

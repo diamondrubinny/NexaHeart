@@ -4,6 +4,7 @@
 import { readCommunitySettings, readIdentitySettings } from '../../lib/community-settings.js';
 import { checkHarm, rank, scoreCandidate, type ScoreResult } from '@nexaheart/ai';
 import type { Pool } from 'pg';
+import { captionsOf } from '../video/service.js';
 import { schema, type Database } from '@nexaheart/db';
 import {
   ageOn,
@@ -1390,6 +1391,9 @@ export class DiscoveryService {
             userId: schema.profileVideos.userId,
             promptKey: schema.profileVideos.promptKey,
             durationMs: schema.profileVideos.durationMs,
+            captions: schema.profileVideos.captions,
+            captionsStatus: schema.profileVideos.captionsStatus,
+            lang: schema.profileVideos.lang,
           })
           .from(schema.profileVideos)
           .where(
@@ -1406,6 +1410,8 @@ export class DiscoveryService {
           url: `/v1/videos/${v.id}`,
           posterUrl: `/v1/videos/${v.id}/poster`,
           durationMs: v.durationMs ?? 0,
+          // Phase 80: captions, approved with the video.
+          captions: captionsOf(v),
         },
       ]),
     );

@@ -56,6 +56,7 @@ function fakeModel(answer: string) {
       calls.push({ bytes: audio.length, lang });
       return answer;
     },
+    transcribeTimed: async () => [],
   };
   return { calls, transcriber };
 }

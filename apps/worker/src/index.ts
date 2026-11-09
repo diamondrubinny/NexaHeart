@@ -9,6 +9,8 @@ import {
   NOTIFY_QUEUE,
   OUTBOUND_QUEUE,
   TRANSCRIBE_QUEUE,
+  TranscribeJob,
+  type CaptionVideoJobData,
   type TranscribeJobData,
   type PushJob,
   PROFILE_QUEUE,
@@ -48,7 +50,12 @@ import { processFriendRetention } from './friend-jobs.js';
 import { processCalls } from './call-jobs.js';
 import { processBackupWatch } from './backup-watch.js';
 import { processUpdateNotice, processUpdateResults } from './update-mail.js';
-import { markTranscriptFailed, processTranscript } from './transcript-jobs.js';
+import {
+  markCaptionsFailed,
+  markTranscriptFailed,
+  processCaptions,
+  processTranscript,
+} from './transcript-jobs.js';
 import { createWhisper } from './transcribe.js';
 import {
   alertTargetFrom,
@@ -228,6 +235,12 @@ async function main(): Promise<void> {
             })),
           };
         case 'checkins':
+          // Phase 80: a video never waits for captions more than 15 minutes (a lost job, or no
+          // worker with the speech model): it goes to review without them.
+          await db.execute(sql`
+            UPDATE profile_videos SET status = 'review', captions_status = 'failed'
+            WHERE status = 'processing' AND captions_status = 'pending'
+              AND created_at < now() - interval '15 minutes'`);
           return processCheckins({
             db,
             instanceName: async () => {
@@ -359,10 +372,34 @@ async function main(): Promise<void> {
   const transcriptWorker = transcriber
     ? new Worker(
         TRANSCRIBE_QUEUE,
-        async (job) => processTranscript(ctx, transcriber, job.data as TranscribeJobData),
+        async (job) =>
+          job.name === TranscribeJob.CaptionVideo
+            ? processCaptions(ctx, transcriber, job.data as CaptionVideoJobData)
+            : processTranscript(ctx, transcriber, job.data as TranscribeJobData),
         { connection, concurrency: 1 },
       )
     : null;
+  // Phase 80: captions for video prompts ride the same queue (one job at a time).
+  const captionQueue = transcriber
+    ? new Queue(TRANSCRIBE_QUEUE, {
+        connection,
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'fixed', delay: 30_000 },
+          removeOnComplete: true,
+          removeOnFail: 100,
+        },
+      })
+    : null;
+  if (captionQueue) {
+    ctx.enqueueCaptions = async (videoId) => {
+      await captionQueue.add(
+        TranscribeJob.CaptionVideo,
+        { videoId },
+        { jobId: `captions-${videoId}` },
+      );
+    };
+  }
   transcriptWorker?.on('completed', (job, result) =>
     log.info({ job: job.name, result }, 'job done'),
   );
@@ -370,7 +407,12 @@ async function main(): Promise<void> {
     failed(job?.name, error);
     // After the last attempt, asking again starts over.
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-      void markTranscriptFailed(ctx, (job.data as TranscribeJobData).audioId);
+      if (job.name === TranscribeJob.CaptionVideo) {
+        // The video isn't held back for its captions.
+        void markCaptionsFailed(ctx, (job.data as CaptionVideoJobData).videoId);
+      } else {
+        void markTranscriptFailed(ctx, (job.data as TranscribeJobData).audioId);
+      }
     }
   });
 
@@ -458,6 +500,7 @@ async function main(): Promise<void> {
     await notifyWorker.close();
     await outboundWorker.close();
     await transcriptWorker?.close();
+    await captionQueue?.close();
     await scheduler.close();
     connection.disconnect();
     publisher.disconnect();

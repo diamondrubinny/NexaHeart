@@ -4,15 +4,18 @@
 import { schema } from '@nexaheart/db';
 import {
   MAX_TRANSCRIPT_LENGTH,
+  normalizeCues,
   transcriptLangSchema,
+  type CaptionVideoJobData,
   type TranscribeJobData,
   type TranscriptLang,
 } from '@nexaheart/shared';
 import { and, eq, sql } from 'drizzle-orm';
-import { notifyChatMedia, type JobContext } from './jobs.js';
+import { checkHarm } from '@nexaheart/ai';
+import { notifyChatMedia, releaseVideo, type JobContext } from './jobs.js';
 import type { Transcriber } from './transcribe.js';
 
-const { audioClips, instanceSettings, preferences } = schema;
+const { audioClips, instanceSettings, preferences, profileVideos } = schema;
 
 /**
  * Makes the text of one voice clip (phase 26), only after someone who may play it asked. Runs on
@@ -84,4 +87,49 @@ async function languageOf(ctx: JobContext, lang: string | null): Promise<Transcr
     .limit(1);
   const fallback = transcriptLangSchema.safeParse(settings?.locale);
   return fallback.success ? fallback.data : 'en';
+}
+
+/**
+ * Captions for a video prompt (phase 80), from its own re-encoded sound track, on this server. The
+ * video waits in `processing` and goes to review when this ends, with or without captions, so
+ * moderators approve the words together with the picture. Throws on a model error (BullMQ
+ * retries); the last attempt releases the video without captions (see the failed handler).
+ */
+export async function processCaptions(
+  ctx: JobContext,
+  transcriber: Transcriber,
+  { videoId }: CaptionVideoJobData,
+): Promise<string> {
+  const [row] = await ctx.db.select().from(profileVideos).where(eq(profileVideos.id, videoId));
+  if (!row || row.status !== 'processing' || row.captionsStatus !== 'pending' || !row.mediaKey) {
+    return 'skipped';
+  }
+  // The owner may have chosen "voice only" since the upload.
+  const [pref] = await ctx.db
+    .select({ allow: preferences.allowTranscripts })
+    .from(preferences)
+    .where(eq(preferences.userId, row.userId));
+  if (pref && !pref.allow) {
+    await releaseVideo(ctx, videoId, 'off');
+    return 'not allowed';
+  }
+  const media = await ctx.storage.getBuffer(ctx.storage.buckets.media, row.mediaKey);
+  const chunks = await transcriber.transcribeTimed(media, await languageOf(ctx, row.lang));
+  const cues = normalizeCues(chunks, row.durationMs ?? 0);
+  if (cues.length === 0) {
+    await releaseVideo(ctx, videoId, 'none');
+    return 'none';
+  }
+  // What the harm filter sees in the words: a note for the moderator, who decides.
+  const harm = checkHarm(cues.map((cue) => cue.text).join(' '));
+  const released = await releaseVideo(ctx, videoId, 'done', {
+    cues,
+    flags: harm.flagged ? harm.categories : [],
+  });
+  return released ? 'done' : 'skipped';
+}
+
+/** After the last retry: the video isn't held back for its captions. */
+export async function markCaptionsFailed(ctx: JobContext, videoId: string): Promise<void> {
+  await releaseVideo(ctx, videoId, 'failed');
 }

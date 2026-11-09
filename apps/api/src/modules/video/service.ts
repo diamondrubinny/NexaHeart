@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Diamond Rubinny and NexaHeart contributors · https://nexaheart.com
 // Keep the "Powered by NexaHeart" credit: an additional term of the license (see NOTICE).
+import { createHash } from 'node:crypto';
+import { checkHarm } from '@nexaheart/ai';
 import { schema, type Database } from '@nexaheart/db';
 import {
   ErrorCode,
+  transcriptLangSchema,
+  type CaptionsInput,
+  type CaptionStatus,
+  type TranscriptLang,
+  type VideoCaptions,
+  type VideoCue,
   type AdminVideo,
   type MyVideo,
   type PromptKey,
@@ -49,6 +57,32 @@ export const adminPosterUrl = (id: string) => `/v1/admin/videos/${id}/poster`;
 /** Phase 77e: the quarantine key follows from the ids, so cleanup never depends on the column. */
 export const videoQuarantineKey = (userId: string, videoId: string) =>
   `videos/${userId}/${videoId}`;
+
+const langOf = (lang: string | null): TranscriptLang | null => {
+  const parsed = transcriptLangSchema.safeParse(lang);
+  return parsed.success ? parsed.data : null;
+};
+
+/** The captions viewers and moderators get: only finished ones, with a known language. */
+export function captionsOf(row: {
+  captions: VideoCue[] | null;
+  captionsStatus: string | null;
+  lang: string | null;
+}): VideoCaptions | null {
+  if (row.captionsStatus !== 'done' || !row.captions || row.captions.length === 0) return null;
+  return { lang: langOf(row.lang) ?? 'en', cues: row.captions };
+}
+
+/** A short fingerprint of the words, so an approval names what was seen. */
+export function captionsVersion(row: {
+  captions: VideoCue[] | null;
+  captionsStatus: string | null;
+}) {
+  return createHash('sha256')
+    .update(JSON.stringify([row.captionsStatus, row.captions ?? []]))
+    .digest('hex')
+    .slice(0, 16);
+}
 
 const notFound = () => new HttpError(404, ErrorCode.NotFound, 'Resource not found.');
 
@@ -99,18 +133,29 @@ export class VideoService {
         durationMs: row.durationMs,
         url: ready ? videoUrl(row.id) : null,
         posterUrl: ready ? posterUrl(row.id) : null,
+        captions: {
+          status: (row.captionsStatus as CaptionStatus | null) ?? 'off',
+          lang: langOf(row.lang),
+          cues: row.captionsStatus === 'done' ? (row.captions ?? []) : [],
+        },
       },
     };
   }
 
   /** A new video replaces the old one at once (the old media is deleted). */
-  async upload(userId: string, promptKey: PromptKey, buffer: Buffer): Promise<MyVideo> {
+  async upload(
+    userId: string,
+    promptKey: PromptKey,
+    buffer: Buffer,
+    /** The app's language: the language spoken, for the captions (phase 80). */
+    lang?: TranscriptLang,
+  ): Promise<MyVideo> {
     const mime = await sniffVideoType(buffer);
     if (!mime) throw new HttpError(415, ErrorCode.BadRequest, 'Unsupported video format.');
     await this.remove(userId);
     const [row] = await this.db
       .insert(profileVideos)
-      .values({ userId, promptKey })
+      .values({ userId, promptKey, ...(lang ? { lang } : {}) })
       .returning({ id: profileVideos.id });
     const key = videoQuarantineKey(userId, row!.id);
     try {
@@ -163,9 +208,54 @@ export class VideoService {
           url: videoUrl(r.id),
           posterUrl: posterUrl(r.id),
           durationMs: r.durationMs ?? 0,
+          captions: captionsOf(r),
         },
       ]),
     );
+  }
+
+  /**
+   * Phase 80: the owner corrects the words (the timing stays) or turns captions off. Corrected
+   * words on an approved video send it back to review: nothing unreviewed is shown. Turning them
+   * off needs no review.
+   */
+  async setCaptions(userId: string, input: CaptionsInput): Promise<MyVideo> {
+    const row = await this.row(userId);
+    if (!row || (row.status !== 'review' && row.status !== 'clean')) throw notFound();
+    const stillThere = and(
+      eq(profileVideos.id, row.id),
+      inArray(profileVideos.status, ['review', 'clean']),
+    );
+    if (input.lines === null) {
+      await this.db
+        .update(profileVideos)
+        .set({ captions: null, captionsStatus: 'off', captionFlags: [] })
+        .where(stillThere);
+      return this.mine(userId);
+    }
+    const cues = row.captionsStatus === 'done' ? (row.captions ?? []) : [];
+    if (cues.length === 0 || input.lines.length !== cues.length) {
+      throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Load them again.');
+    }
+    const lines = input.lines;
+    if ([...lines, lines.join(' ')].some((text) => checkHarm(text).flagged)) {
+      throw new HttpError(
+        422,
+        ErrorCode.ValidationError,
+        'This may hurt. Please choose kinder words.',
+      );
+    }
+    if (lines.every((text, i) => text === cues[i]!.text)) return this.mine(userId);
+    await this.db
+      .update(profileVideos)
+      .set({
+        captions: cues.map((cue, i) => ({ ...cue, text: lines[i]! })),
+        captionFlags: [],
+        // Back to the moderators when it was already shown.
+        ...(row.status === 'clean' ? { status: 'review', reviewedBy: null, reviewedAt: null } : {}),
+      })
+      .where(stillThere);
+    return this.mine(userId);
   }
 
   /**
@@ -231,6 +321,9 @@ export class VideoService {
       url: adminVideoUrl(video.id),
       posterUrl: adminPosterUrl(video.id),
       submittedAt: video.createdAt.toISOString(),
+      captions: captionsOf(video),
+      captionFlags: video.captionFlags,
+      captionsVersion: captionsVersion(video),
     };
   }
 
@@ -258,6 +351,14 @@ export class VideoService {
     // Phase 77e: nobody reviews their own video (like reports that involve them).
     if (row.userId === staffId) {
       throw new HttpError(403, ErrorCode.Forbidden, 'You cannot review your own video.');
+    }
+    // Phase 80: the owner corrected the captions after the moderator loaded them.
+    if (
+      decision.approve &&
+      decision.captionsVersion !== undefined &&
+      decision.captionsVersion !== captionsVersion(row)
+    ) {
+      throw new HttpError(409, ErrorCode.Conflict, 'The captions changed. Look again.');
     }
     const allowedFrom = decision.approve ? ['review'] : ['review', 'clean'];
     if (!allowedFrom.includes(row.status)) {

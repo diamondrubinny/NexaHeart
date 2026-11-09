@@ -76,7 +76,13 @@ export const TRANSCRIBE_QUEUE = 'transcribe';
 
 export const TranscribeJob = {
   Transcribe: 'transcribe',
+  /** Phase 80: captions for a video prompt (same model, same one-at-a-time queue). */
+  CaptionVideo: 'caption-video',
 } as const;
+
+export interface CaptionVideoJobData {
+  videoId: string;
+}
 
 export interface TranscribeJobData {
   audioId: string;
