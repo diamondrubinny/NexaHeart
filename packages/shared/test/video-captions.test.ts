@@ -31,7 +31,8 @@ describe('video captions (phase 80)', () => {
         text: '<v Eve>hi</v> & bye\n\n00:00:05.000 --> 00:00:09.000\ninjected‮',
       },
     ]);
-    expect(vtt.match(/-->/g)).toHaveLength(1);
+    // One timing arrow: the text added no cue of its own.
+    expect(vtt.split(' --> ')).toHaveLength(2);
     expect(vtt).not.toContain('<');
     expect(vtt).toContain('&lt;v Eve&gt;hi&lt;/v&gt; &amp; bye 00:00:05.000 --&gt; 00:00:09.000');
     expect(vtt).not.toContain('‮');
